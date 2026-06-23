@@ -1,0 +1,218 @@
+import bookingRepository from '../5-repositories/bookingRepository.js';
+import unitRepository from '../5-repositories/unitRepository.js';
+import googleCalendarService from './googleCalendarService.js';
+
+export class BookingService {
+  async getAllBookings(user) {
+    let query = {};
+    
+    if (user.role === 'admin') {
+      // Admin sees all bookings
+      const bookings = await bookingRepository.findAll({});
+      return bookings.map(b => b.toJSON());
+    }
+    
+    if (user.role === 'zimmer_owner' || user.role === 'complex_owner' || user.role === 'manager') {
+      // Owners see bookings for their units
+      if (user.role === 'zimmer_owner' && !user.accountId) {
+        // zimmer_owner without account: filter by userId of units
+        const units = await unitRepository.findAll({ userId: user._id });
+        const unitIds = units.map(u => u._id.toString());
+        if (unitIds.length > 0) {
+          query.unitId = { $in: unitIds };
+        } else {
+          // No units = no bookings
+          return [];
+        }
+      } else if (user.accountId) {
+        // complex_owner/manager or zimmer_owner with account: filter by accountId
+        const units = await unitRepository.findByAccountId(user.accountId);
+        const unitIds = units.map(u => u._id.toString());
+        if (unitIds.length > 0) {
+          query.unitId = { $in: unitIds };
+        } else {
+          // No units = no bookings
+          return [];
+        }
+      } else {
+        // complex_owner/manager without accountId = no bookings
+        return [];
+      }
+    } else if (user.role === 'client' || user.role === 'customer') {
+      // Clients see only their own bookings
+      query.userId = user._id;
+    }
+
+    const bookings = await bookingRepository.findAll(query);
+    return bookings.map(b => b.toJSON());
+  }
+
+  async getBookingById(id, user) {
+    const booking = await bookingRepository.findById(id);
+    
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    // Check access
+    if (user.role !== 'admin') {
+      const unit = await unitRepository.findById(booking.unitId);
+      if (!unit) {
+        throw new Error('Unit not found');
+      }
+      
+      // zimmer_owner without account: check by userId
+      if (user.role === 'zimmer_owner' && !user.accountId) {
+        if (unit.userId?.toString() !== user._id?.toString()) {
+          throw new Error('Access denied');
+        }
+      } else if (user.role === 'zimmer_owner' || user.role === 'complex_owner' || user.role === 'manager') {
+        // zimmer_owner with account or complex_owner/manager: check by accountId
+        if (unit.accountId?.toString() !== user.accountId?.toString()) {
+          throw new Error('Access denied');
+        }
+      } else {
+        throw new Error('Access denied');
+      }
+    }
+
+    return booking.toJSON();
+  }
+
+  async createBooking(bookingData, user) {
+    const booking = await bookingRepository.create(bookingData);
+    
+    // Sync to Google Calendar if user has it connected
+    if (user.googleCalendarLinked && booking.status !== 'cancelled') {
+      try {
+        const unit = await unitRepository.findById(booking.unitId);
+        if (unit) {
+          const eventId = await googleCalendarService.syncBookingToGoogleCalendar(booking, unit, user._id.toString());
+          if (eventId) {
+            // Update booking with event ID and sync status
+            await bookingRepository.update(booking._id.toString(), {
+              googleCalendarEventId: eventId,
+              googleSynced: true
+            });
+            booking.googleCalendarEventId = eventId;
+            booking.googleSynced = true;
+          }
+        }
+      } catch (error) {
+        console.error('❌ [BookingService] Google Calendar sync error (non-fatal):', error.message);
+        // Continue even if calendar sync fails
+      }
+    }
+    
+    return booking.toJSON();
+  }
+
+  async updateBooking(id, bookingData, user) {
+    const booking = await bookingRepository.findById(id);
+    
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    // Check access
+    if (user.role !== 'admin') {
+      const unit = await unitRepository.findById(booking.unitId);
+      if (!unit) {
+        throw new Error('Unit not found');
+      }
+      
+      // zimmer_owner without account: check by userId
+      if (user.role === 'zimmer_owner' && !user.accountId) {
+        if (unit.userId?.toString() !== user._id?.toString()) {
+          throw new Error('Access denied');
+        }
+      } else if (user.role === 'zimmer_owner' || user.role === 'complex_owner' || user.role === 'manager') {
+        // zimmer_owner with account or complex_owner/manager: check by accountId
+        if (unit.accountId?.toString() !== user.accountId?.toString()) {
+          throw new Error('Access denied');
+        }
+      } else {
+        throw new Error('Access denied');
+      }
+    }
+
+    const updatedBooking = await bookingRepository.update(id, bookingData);
+    
+    // Sync to Google Calendar if user has it connected
+    if (user.googleCalendarLinked) {
+      try {
+        const unit = await unitRepository.findById(updatedBooking.unitId);
+        if (unit) {
+          // If cancelled, delete event; otherwise update/create
+          if (updatedBooking.status === 'cancelled' && booking.googleCalendarEventId) {
+            await googleCalendarService.deleteCalendarEvent(booking.googleCalendarEventId, user._id.toString());
+            await bookingRepository.update(id, {
+              googleCalendarEventId: null,
+              googleSynced: false
+            });
+          } else if (updatedBooking.status !== 'cancelled') {
+            const eventId = await googleCalendarService.syncBookingToGoogleCalendar(updatedBooking, unit, user._id.toString());
+            if (eventId) {
+              await bookingRepository.update(id, {
+                googleCalendarEventId: eventId,
+                googleSynced: true
+              });
+              updatedBooking.googleCalendarEventId = eventId;
+              updatedBooking.googleSynced = true;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ [BookingService] Google Calendar sync error (non-fatal):', error.message);
+        // Continue even if calendar sync fails
+      }
+    }
+    
+    return updatedBooking.toJSON();
+  }
+
+  async deleteBooking(id, user) {
+    const booking = await bookingRepository.findById(id);
+    
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
+    // Check access
+    if (user.role !== 'admin') {
+      const unit = await unitRepository.findById(booking.unitId);
+      if (!unit) {
+        throw new Error('Unit not found');
+      }
+      
+      // zimmer_owner without account: check by userId
+      if (user.role === 'zimmer_owner' && !user.accountId) {
+        if (unit.userId?.toString() !== user._id?.toString()) {
+          throw new Error('Access denied');
+        }
+      } else if (user.role === 'zimmer_owner' || user.role === 'complex_owner' || user.role === 'manager') {
+        // zimmer_owner with account or complex_owner/manager: check by accountId
+        if (unit.accountId?.toString() !== user.accountId?.toString()) {
+          throw new Error('Access denied');
+        }
+      } else {
+        throw new Error('Access denied');
+      }
+    }
+
+    // Delete from Google Calendar if exists
+    if (user.googleCalendarLinked && booking.googleCalendarEventId) {
+      try {
+        await googleCalendarService.deleteCalendarEvent(booking.googleCalendarEventId, user._id.toString());
+      } catch (error) {
+        console.error('❌ [BookingService] Google Calendar delete error (non-fatal):', error.message);
+        // Continue even if calendar delete fails
+      }
+    }
+
+    await bookingRepository.delete(id);
+    return { message: 'Booking deleted successfully' };
+  }
+}
+
+export default new BookingService();

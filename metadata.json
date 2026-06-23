@@ -1,0 +1,8 @@
+{
+  "name": "ZimmerPro AI - Smart Management System",
+  "description": "A comprehensive vacation rental management system featuring smart WhatsApp bot integration, booking analytics, and automated guest communication.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
