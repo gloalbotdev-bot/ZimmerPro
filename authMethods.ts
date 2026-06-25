@@ -1,26 +1,20 @@
-export type AuthMethod = 'phone' | 'email' | 'google';
+const ALL_METHODS = ['phone', 'email', 'google'] as const;
 
-const ALL_METHODS: AuthMethod[] = ['phone', 'email', 'google'];
+export type AuthMethod = (typeof ALL_METHODS)[number];
 
-// Parse enabled methods from env variable
-const getEnabledMethods = (): AuthMethod[] => {
-  const envMethods = import.meta.env.VITE_AUTH_ENABLED_METHODS || 'phone,email,google';
-  return envMethods
-    .split(',')
-    .map((m: string) => m.trim() as AuthMethod)
-    .filter((m: AuthMethod) => ALL_METHODS.includes(m));
-};
+const enabled = (
+  import.meta.env.VITE_AUTH_ENABLED_METHODS || ALL_METHODS.join(',')
+)
+  .split(',')
+  .map((s: string) => s.trim())
+  .filter(Boolean) as AuthMethod[];
 
-const enabledMethods = getEnabledMethods();
+export const isAuthMethodEnabled = (method: AuthMethod): boolean =>
+  enabled.includes(method);
 
-export const isAuthMethodEnabled = (method: AuthMethod): boolean => {
-  return enabledMethods.includes(method);
-};
+export const getEnabledAuthMethods = (): AuthMethod[] => [...enabled];
 
-export const getEnabledAuthMethods = (): AuthMethod[] => {
-  return enabledMethods;
-};
+export const getDefaultAuthMethod = (): AuthMethod =>
+  enabled.includes('google') ? 'google' : enabled[0];
 
-export const getDefaultAuthMethod = (): AuthMethod => {
-  return enabledMethods.includes('google') ? 'google' : enabledMethods[0] || 'phone';
-};
+export const showAuthMethodPicker = (): boolean => enabled.length > 1;
