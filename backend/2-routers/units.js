@@ -12,12 +12,12 @@ router.get('/', authenticate, (req, res, next) => unitController.getAll(req, res
 router.get('/:id', authenticate, canAccessUnit, (req, res, next) => unitController.getById(req, res, next));
 
 // Create unit (only owners and admins)
-router.post('/', authenticate, checkRole('admin', 'zimmer_owner', 'complex_owner'), (req, res, next) => unitController.create(req, res, next));
+router.post('/', authenticate, checkRole('admin', 'zimmer_owner', 'complex_owner', 'manager'), (req, res, next) => unitController.create(req, res, next));
 
 // Update unit (only owners and admins)
-router.put('/:id', authenticate, canAccessUnit, checkRole('admin', 'zimmer_owner', 'complex_owner'), (req, res, next) => unitController.update(req, res, next));
+router.put('/:id', authenticate, canAccessUnit, checkRole('admin', 'zimmer_owner', 'complex_owner', 'manager'), (req, res, next) => unitController.update(req, res, next));
 
 // Delete unit (only owners and admins)
-router.delete('/:id', authenticate, canAccessUnit, checkRole('admin', 'zimmer_owner', 'complex_owner'), (req, res, next) => unitController.delete(req, res, next));
+router.delete('/:id', authenticate, canAccessUnit, checkRole('admin', 'zimmer_owner', 'complex_owner', 'manager'), (req, res, next) => unitController.delete(req, res, next));
 
 export default router;

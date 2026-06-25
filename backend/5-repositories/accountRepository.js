@@ -49,7 +49,7 @@ export class AccountRepository {
     delete cleanData.token;
     
     // Ensure we only have valid fields
-    const validFields = ['name', 'phone', 'email', 'logo', 'primary_contact_id', 'is_active', 'whatsapp_number', 'maxUnits'];
+    const validFields = ['name', 'phone', 'email', 'logo', 'primary_contact_id', 'is_active', 'whatsapp_number', 'maxUnits', 'userId'];
     const filteredData = {};
     for (const key of validFields) {
       if (cleanData[key] !== undefined) {

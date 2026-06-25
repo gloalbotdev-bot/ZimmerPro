@@ -174,14 +174,14 @@ export class UnitService {
         throw new Error('User not found');
       }
 
-      // Get user's UserSettings - חובה לבדוק
-      const userSettings = await userSettingsRepository.findById(targetUser.userSettingsId);
-      if (!userSettings) {
-        throw new Error('User settings not found');
-      }
+      // Get user's UserSettings - בדיקת מכסה רק אם קיים
+      const userSettings = targetUser.userSettingsId
+        ? await userSettingsRepository.findById(targetUser.userSettingsId)
+        : null;
 
       // If ownerType is 'zimmer_owner', check that user can only have 1 unit
-      if (userSettings.ownerType === 'zimmer_owner') {
+      const ownerType = userSettings?.ownerType || targetUser.role;
+      if (ownerType === 'zimmer_owner') {
         const existingUnits = await unitRepository.findAll({ 
           linkType: 'user',
           linkedToId: data.linkedToId 
