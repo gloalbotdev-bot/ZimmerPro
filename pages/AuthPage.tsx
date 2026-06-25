@@ -20,6 +20,12 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
   const [otpCode, setOtpCode] = useState(['', '', '', '', '']); // 5 digits OTP
   const googleButtonRef = useRef<HTMLDivElement>(null);
   
+  // Initialize default method based on enabled methods
+  useEffect(() => {
+    const defaultMethod = getDefaultAuthMethod();
+    setMethod(defaultMethod);
+  }, []);
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -651,7 +657,7 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
               <>
                 {mode === 'login' ? (
                   <>
-                    {method === 'phone' ? (
+                    {method === 'phone' && isAuthMethodEnabled('phone') ? (
                       <>
                         <div>
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">תעודת זהות</label>
@@ -710,7 +716,7 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
                           </p>
                         </div>
                       </>
-                    ) : (
+                    ) : (method === 'email' && isAuthMethodEnabled('email')) ? (
                       <>
                         <div>
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">אימייל</label>
