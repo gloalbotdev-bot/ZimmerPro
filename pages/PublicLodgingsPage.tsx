@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, User, UserRole } from '../types';
 import { translations, Language } from '../translations';
 import { authAPI, setAuthToken, getAuthToken } from '../api';
+import { getDefaultAuthMethod, isAuthMethodEnabled, showAuthMethodPicker } from '../authMethods';
 import UnitsPage from './UnitsPage';
 import BookingsPage from './BookingsPage';
 import { 
@@ -19,7 +20,7 @@ const PublicLodgingsPage: React.FC<Props> = ({ db, setDb, onLogin }) => {
   const t = translations['he']; // Always Hebrew for public page
   const [loading, setLoading] = useState(false);
   const [authStep, setAuthStep] = useState<'login' | 'content'>('login');
-  const [authMethod, setAuthMethod] = useState<'phone' | 'google'>('phone');
+  const [authMethod, setAuthMethod] = useState<'phone' | 'google'>(getDefaultAuthMethod() as 'phone' | 'google');
   const [otpStep, setOtpStep] = useState<1 | 2>(1);
   const [otpCode, setOtpCode] = useState(['', '', '', '', '']);
   const [activeView, setActiveView] = useState<'units' | 'bookings'>('units');
@@ -262,7 +263,9 @@ const PublicLodgingsPage: React.FC<Props> = ({ db, setDb, onLogin }) => {
           {otpStep === 1 ? (
             <div className="space-y-5">
               {/* Method Toggle */}
+              {showAuthMethodPicker() && (
               <div className="flex gap-2 p-1.5 bg-gradient-to-r from-slate-100 to-slate-50 rounded-2xl shadow-inner">
+                {isAuthMethodEnabled('phone') && (
                 <button
                   onClick={() => setAuthMethod('phone')}
                   className={`flex-1 py-3 text-xs sm:text-sm font-black rounded-xl transition-all duration-300 ${
@@ -276,6 +279,8 @@ const PublicLodgingsPage: React.FC<Props> = ({ db, setDb, onLogin }) => {
                     תעודת זהות
                   </div>
                 </button>
+                )}
+                {isAuthMethodEnabled('google') && (
                 <button
                   onClick={() => setAuthMethod('google')}
                   className={`flex-1 py-3 text-xs sm:text-sm font-black rounded-xl transition-all duration-300 ${
@@ -289,7 +294,9 @@ const PublicLodgingsPage: React.FC<Props> = ({ db, setDb, onLogin }) => {
                     Google
                   </div>
                 </button>
+                )}
               </div>
+              )}
 
               {authMethod === 'phone' ? (
                 <>

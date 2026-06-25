@@ -10,7 +10,8 @@ import User from '../models/User.js';
 /**
  * Check if user can access a unit
  * - admin: can access all units
- * - zimmer_owner/complex_owner: can access only their units (accountId match)
+ * - zimmer_owner: can access units linked to their userId
+ * - complex_owner/manager: can access units linked to their accounts
  * - client: cannot access units
  */
 export const canAccessUnit = async (req, res, next) => {
@@ -19,16 +20,15 @@ export const canAccessUnit = async (req, res, next) => {
     const unitId = req.params.id || req.body.unitId;
 
     if (!unitId && req.method === 'POST') {
-      // Creating new unit - check authorization by role
       return next();
     }
 
     if (!unitId) {
-      return next(); // Let controller handle it
+      return next();
     }
 
     if (user.role === 'admin') {
-      return next(); // Admin can access everything
+      return next();
     }
 
     const unit = await Unit.findById(unitId);
@@ -39,8 +39,25 @@ export const canAccessUnit = async (req, res, next) => {
       });
     }
 
-    // Check if user owns this unit (via accountId)
-    if (user.role === 'zimmer_owner' || user.role === 'complex_owner') {
+    // zimmer_owner: unit must be linked to this user
+    if (user.role === 'zimmer_owner') {
+      if (unit.linkType === 'user' && unit.linkedToId?.toString() === user._id?.toString()) {
+        return next();
+      }
+      // fallback: old accountId field
+      if (unit.accountId && unit.accountId.toString() === user.accountId?.toString()) {
+        return next();
+      }
+    }
+
+    // complex_owner/manager: unit must be linked to one of their accounts
+    if (user.role === 'complex_owner' || user.role === 'manager') {
+      if (unit.linkType === 'account' && unit.linkedToId) {
+        const { default: Account } = await import('../models/Account.js');
+        const account = await Account.findOne({ _id: unit.linkedToId, userId: user._id });
+        if (account) return next();
+      }
+      // fallback: old accountId field
       if (unit.accountId && unit.accountId.toString() === user.accountId?.toString()) {
         return next();
       }
