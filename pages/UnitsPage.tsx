@@ -303,10 +303,15 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
     try {
       const data = await usersAPI.getAll();
       setUsers(data || []);
-      // Also update local db for compatibility
       setDb({ ...db, users: data || [] });
     } catch (err: any) {
       console.error('Error loading users:', err);
+      // If token is invalid, clear it and redirect to login
+      if (err.message?.includes('Invalid token') || err.message?.includes('Token expired')) {
+        const { setAuthToken } = await import('../api');
+        setAuthToken(null);
+        window.location.href = '/';
+      }
     }
   };
 
@@ -2113,10 +2118,10 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
                            </div>
                          )}
                          {tempRooms.map(room => (
-                           <button 
+                           <div 
                              key={room.id} 
                              onClick={() => setSelectedRoomId(room.id)}
-                             className={`w-full text-right p-4 rounded-2xl border transition-all ${selectedRoomId === room.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-100 text-slate-800 hover:border-slate-300'}`}
+                             className={`w-full text-right p-4 rounded-2xl border transition-all cursor-pointer ${selectedRoomId === room.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-100 text-slate-800 hover:border-slate-300'}`}
                            >
                               <div className="flex gap-3 items-start">
                                  <div className={`p-2 rounded-lg flex-shrink-0 ${selectedRoomId === room.id ? 'bg-white/20 text-white' : 'bg-white text-slate-400'}`}><Bed size={16}/></div>
@@ -2140,7 +2145,7 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
                                    title="מחק חדר"
                                  ><Trash2 size={14}/></button>
                               </div>
-                           </button>
+                           </div>
                          ))}
                       </div>
                    </div>

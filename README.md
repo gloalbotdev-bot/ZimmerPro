@@ -124,6 +124,12 @@ npm run start:backend
 | `JWT_SECRET` | מפתח לחתימת JWT | **חובה בפרודקשן** – בפיתוח יש fallback לא בטוח |
 | `JWT_EXPIRES_IN` | תוקף טוקן | `7d` |
 
+### שיטות התחברות (אופציונלי)
+
+| משתנה | תיאור | ברירת מחדל |
+|--------|--------|-------------|
+| `AUTH_ENABLED_METHODS` | שיטות מותרות: `phone`, `email`, `google` (מופרד בפסיקים) | כל השיטות פעילות |
+
 ### Google OAuth / Calendar (אופציונלי)
 
 | משתנה | תיאור |
@@ -170,6 +176,9 @@ NODE_ENV=development
 JWT_SECRET=<generate-a-long-random-string>
 JWT_EXPIRES_IN=7d
 
+# === שיטות התחברות (אופציונלי) ===
+# AUTH_ENABLED_METHODS=google
+
 # === Google OAuth ===
 GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=<your-google-client-secret>
@@ -199,6 +208,7 @@ EMAIL_FROM_ADDRESS=<sender@your-domain.com>
 |--------|--------|--------|-------------|
 | `VITE_API_URL` | לא | כתובת ה-API | בפיתוח: `http://localhost:3000/api` |
 | `VITE_GOOGLE_CLIENT_ID` | ל-Google Sign-In | Client ID (חייב להתאים ל-`GOOGLE_CLIENT_ID` בבקאנד) | — |
+| `VITE_AUTH_ENABLED_METHODS` | לא | שיטות התחברות: `phone`, `email`, `google` (מופרד בפסיקים). ברירת מחדל: הכל | `google` לכניסה עם Google בלבד |
 | `VITE_GEMINI_API_KEY` | לפיצ'רי AI בפרונט | מפתח Gemini | — |
 | `GEMINI_API_KEY` | לא | נקרא גם מ-`vite.config.ts` | — |
 
@@ -207,6 +217,7 @@ EMAIL_FROM_ADDRESS=<sender@your-domain.com>
 ```env
 # VITE_API_URL=http://localhost:3000/api
 VITE_GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
+VITE_AUTH_ENABLED_METHODS=google
 VITE_GEMINI_API_KEY=<your-gemini-api-key>
 ```
 

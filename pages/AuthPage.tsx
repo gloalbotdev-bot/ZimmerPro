@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, User, UserRole } from '../types';
 import { Smartphone, Mail, Chrome, ShieldCheck, Lock, UserCircle, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { authAPI, setAuthToken } from '../api';
-import { isAuthMethodEnabled, getDefaultAuthMethod } from '../authMethods';
+import { getDefaultAuthMethod, isAuthMethodEnabled, showAuthMethodPicker } from '../authMethods';
 
 interface Props {
   db: AppState;
@@ -13,7 +13,7 @@ interface Props {
 
 const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [method, setMethod] = useState<'phone' | 'google' | 'email'>('google');
+  const [method, setMethod] = useState<'phone' | 'google' | 'email'>(getDefaultAuthMethod());
   const [step, setStep] = useState<1 | 2>(1); // 1: Input, 2: 2FA/Confirmation
   const [loading, setLoading] = useState(false);
   const [showFallbackButton, setShowFallbackButton] = useState(false);
@@ -75,7 +75,7 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
       }
     } catch (error: any) {
       console.error('Google auth error:', error);
-      alert(error?.message || `שגיאה ב${mode === 'login' ? 'התחברות' : 'הרשמה'} עם Google. אנא נסה שוב או השתמש באימייל וסיסמה.`);
+      alert(error?.message || `שגיאה ב${mode === 'login' ? 'התחברות' : 'הרשמה'} עם Google. אנא נסה שוב.`);
     } finally {
       setLoading(false);
     }
@@ -319,6 +319,53 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
           return;
         }
 
+        // email register — direct registration without OTP
+        if (method === 'email') {
+          const fullName = formData.name || `${formData.firstName} ${formData.lastName}`.trim();
+          if (!fullName || !formData.email || !formData.password) {
+            alert('אנא מלא שם, אימייל וסיסמה');
+            setLoading(false);
+            return;
+          }
+          try {
+            const result = await authAPI.register({
+              name: fullName,
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              email: formData.email,
+              password: formData.password,
+              phoneNumber: formData.phone,
+              idNumber: formData.idNumber,
+              role: formData.role,
+            });
+            if (result.token) {
+              setAuthToken(result.token);
+            }
+            const newUser: User = {
+              id: result.user.id || result.user._id,
+              name: result.user.name,
+              email: result.user.email,
+              phoneNumber: result.user.phoneNumber,
+              role: result.user.role as UserRole,
+              userSettingsId: result.user.userSettingsId,
+              userSettings: result.user.userSettings,
+              isActive: result.user.isActive !== false,
+              isApproved: result.user.isApproved || false,
+              createdAt: result.user.createdAt || new Date().toISOString().split('T')[0],
+              preferredLanguage: result.user.preferredLanguage || 'he',
+              googleCalendarLinked: result.user.googleCalendarLinked || false
+            };
+            if (!newUser.isApproved) {
+              alert('ההרשמה בוצעה בהצלחה! החשבון ממתין לאישור מנהל.');
+            }
+            onRegister(newUser);
+          } catch (error: any) {
+            alert(error.message || 'שגיאה בהרשמה');
+          }
+          setLoading(false);
+          return;
+        }
+
         if (!formData.name || !formData.email || !formData.password) {
           alert('אנא מלא את כל השדות הנדרשים');
           setLoading(false);
@@ -386,25 +433,25 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
           </div>
 
           {/* Methods Picker */}
-          {step === 1 && (
+          {step === 1 && showAuthMethodPicker() && (
             <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl mb-8">
-              {mode === 'login' && isAuthMethodEnabled('email') && (
+              {isAuthMethodEnabled('email') && (
                 <button 
                   onClick={() => handleMethodChange('email')}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'email' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
                 >אימייל</button>
               )}
               {isAuthMethodEnabled('phone') && (
-                <button 
-                  onClick={() => handleMethodChange('phone')}
-                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'phone' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
-                >תעודת זהות</button>
+              <button 
+                onClick={() => handleMethodChange('phone')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'phone' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+              >תעודת זהות</button>
               )}
               {isAuthMethodEnabled('google') && (
-                <button 
-                  onClick={() => handleMethodChange('google')}
-                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'google' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
-                >גוגל</button>
+              <button 
+                onClick={() => handleMethodChange('google')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'google' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+              >גוגל</button>
               )}
             </div>
           )}
@@ -435,7 +482,7 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
                           }
                         }).requestAccessToken();
                       } else {
-                        alert('Google Identity Services לא נטען. אנא רענן את הדף או השתמש באימייל וסיסמה.');
+                        alert('Google Identity Services לא נטען. אנא רענן את הדף.');
                       }
                     }}
                     disabled={loading}
@@ -695,7 +742,52 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
                     )}
                   </>
                 ) : (
-                  // Registration: All fields from image
+                  // Registration
+                  <>
+                    {method === 'email' ? (
+                      // Email register — ישיר ללא OTP
+                      <>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">שם פרטי</label>
+                          <input type="text" placeholder="ישראל" value={formData.firstName}
+                            onChange={e => setFormData({...formData, firstName: e.target.value})}
+                            className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">שם משפחה</label>
+                          <input type="text" placeholder="ישראלי" value={formData.lastName}
+                            onChange={e => setFormData({...formData, lastName: e.target.value})}
+                            className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">אימייל</label>
+                          <input type="email" placeholder="your@email.com" value={formData.email}
+                            onChange={e => setFormData({...formData, email: e.target.value})}
+                            className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">טלפון נייד</label>
+                          <input type="tel" placeholder="050-000-0000" value={formData.phone}
+                            onChange={e => setFormData({...formData, phone: e.target.value})}
+                            className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">סיסמה</label>
+                          <input type="password" placeholder="••••••••" value={formData.password}
+                            onChange={e => setFormData({...formData, password: e.target.value})}
+                            className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">סוג פעילות</label>
+                          <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})}
+                            className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all">
+                            <option value={UserRole.ZIMMER_OWNER}>בעל צימר בודד</option>
+                            <option value={UserRole.COMPLEX_OWNER}>בעל מתחם נופש</option>
+                          </select>
+                        </div>
+                      </>
+                    ) : (
+                  // Registration: phone/OTP fields
                   <>
                         <div>
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">תעודת זהות</label>
@@ -802,6 +894,8 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
                           <p className="text-xs text-slate-400 mt-1 mr-2">(לפחות 8 תווים, אותיות ומספרים)</p>
                         </div>
                   </>
+                  )}
+                  </>
                 )}
 
                 {mode === 'register' && method === 'phone' && (
@@ -832,9 +926,6 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
               onClick={() => {
                 const newMode = mode === 'login' ? 'register' : 'login';
                 setMode(newMode);
-                if (newMode === 'register' && method === 'email') {
-                  setMethod('phone');
-                }
               }}
               className="text-slate-900 font-black mr-2 underline underline-offset-4"
             >

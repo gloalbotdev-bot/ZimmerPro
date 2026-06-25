@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { requireAuthMethod } from '../middleware/authMethodGuard.js';
 import authController from '../3-controllers/authController.js';
 
 const router = express.Router();
@@ -11,13 +12,13 @@ router.use((req, res, next) => {
 });
 
 
-router.post('/register', (req, res, next) => {
+router.post('/register', requireAuthMethod('email'), (req, res, next) => {
   console.log('📝 Register request received');
   authController.register(req, res, next);
 });
 
 // Login
-router.post('/login', (req, res, next) => {
+router.post('/login', requireAuthMethod('email'), (req, res, next) => {
   console.log('📥 Login request received for:', req.body?.email || 'no email');
   authController.login(req, res, next);
 });
@@ -26,7 +27,7 @@ router.post('/login', (req, res, next) => {
 router.get('/me', authenticate, (req, res) => authController.getMe(req, res));
 
 // Google OAuth login
-router.post('/google', (req, res, next) => {
+router.post('/google', requireAuthMethod('google'), (req, res, next) => {
   console.log('🔵 [Router] Google login request received');
   console.log('🔵 [Router] Request body:', JSON.stringify(req.body));
   console.log('🔵 [Router] Mode:', req.body?.mode || 'not provided');
@@ -35,7 +36,7 @@ router.post('/google', (req, res, next) => {
 });
 
 // Phone authentication
-router.post('/phone/send-otp', (req, res, next) => {
+router.post('/phone/send-otp', requireAuthMethod('phone'), (req, res, next) => {
   console.log('📱 [Router] Phone OTP request received');
   console.log('📱 [Router] Request body:', JSON.stringify(req.body));
   console.log('📱 [Router] PhoneNumber/IDNumber:', req.body?.phoneNumber || 'not provided');
@@ -44,7 +45,7 @@ router.post('/phone/send-otp', (req, res, next) => {
   authController.sendPhoneOTP(req, res, next);
 });
 
-router.post('/phone/verify-otp', async (req, res, next) => {
+router.post('/phone/verify-otp', requireAuthMethod('phone'), async (req, res, next) => {
   try {
     console.log('✅ Phone OTP verification request received for:', req.body?.phoneNumber || 'no phone');
     await authController.verifyPhoneOTP(req, res, next);
@@ -59,7 +60,7 @@ router.post('/phone/verify-otp', async (req, res, next) => {
 });
 
 // Email authentication
-router.post('/email/send-otp', (req, res, next) => {
+router.post('/email/send-otp', requireAuthMethod('email'), (req, res, next) => {
   console.log('📧 [Router] Email OTP request received');
   console.log('📧 [Router] Request body:', JSON.stringify(req.body));
   console.log('📧 [Router] IDNumber/Email:', req.body?.idNumberOrEmail || 'not provided');
@@ -67,7 +68,7 @@ router.post('/email/send-otp', (req, res, next) => {
   authController.sendEmailOTP(req, res, next);
 });
 
-router.post('/email/verify-otp', async (req, res, next) => {
+router.post('/email/verify-otp', requireAuthMethod('email'), async (req, res, next) => {
   try {
     console.log('✅ Email OTP verification request received for:', req.body?.idNumberOrEmail || 'no email');
     await authController.verifyEmailOTP(req, res, next);
