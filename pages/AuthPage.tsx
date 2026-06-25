@@ -739,7 +739,7 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
                           />
                         </div>
                       </>
-                    )}
+                    ) : null}
                   </>
                 ) : (
                   // Registration
