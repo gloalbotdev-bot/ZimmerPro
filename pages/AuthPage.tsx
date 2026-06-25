@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, User, UserRole } from '../types';
 import { Smartphone, Mail, Chrome, ShieldCheck, Lock, UserCircle, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { authAPI, setAuthToken } from '../api';
+import { isAuthMethodEnabled, getDefaultAuthMethod } from '../authMethods';
 
 interface Props {
   db: AppState;
@@ -12,12 +13,18 @@ interface Props {
 
 const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [method, setMethod] = useState<'phone' | 'google' | 'email'>('phone');
+  const [method, setMethod] = useState<'phone' | 'google' | 'email'>('google');
   const [step, setStep] = useState<1 | 2>(1); // 1: Input, 2: 2FA/Confirmation
   const [loading, setLoading] = useState(false);
   const [showFallbackButton, setShowFallbackButton] = useState(false);
   const [otpCode, setOtpCode] = useState(['', '', '', '', '']); // 5 digits OTP
   const googleButtonRef = useRef<HTMLDivElement>(null);
+  
+  // Initialize default method based on enabled methods
+  useEffect(() => {
+    const defaultMethod = getDefaultAuthMethod();
+    setMethod(defaultMethod);
+  }, []);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -381,20 +388,24 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
           {/* Methods Picker */}
           {step === 1 && (
             <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl mb-8">
-              {mode === 'login' && (
+              {mode === 'login' && isAuthMethodEnabled('email') && (
                 <button 
                   onClick={() => handleMethodChange('email')}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'email' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
                 >אימייל</button>
               )}
-              <button 
-                onClick={() => handleMethodChange('phone')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'phone' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
-              >תעודת זהות</button>
-              <button 
-                onClick={() => handleMethodChange('google')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'google' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
-              >גוגל</button>
+              {isAuthMethodEnabled('phone') && (
+                <button 
+                  onClick={() => handleMethodChange('phone')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'phone' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+                >תעודת זהות</button>
+              )}
+              {isAuthMethodEnabled('google') && (
+                <button 
+                  onClick={() => handleMethodChange('google')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${method === 'google' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+                >גוגל</button>
+              )}
             </div>
           )}
 
@@ -599,7 +610,7 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
               <>
                 {mode === 'login' ? (
                   <>
-                    {method === 'phone' ? (
+                    {method === 'phone' && isAuthMethodEnabled('phone') ? (
                       <>
                         <div>
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">תעודת זהות</label>
@@ -658,7 +669,7 @@ const AuthPage: React.FC<Props> = ({ db, onLogin, onRegister }) => {
                           </p>
                         </div>
                       </>
-                    ) : (
+                    ) : (method === 'email' && isAuthMethodEnabled('email')) ? (
                       <>
                         <div>
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">אימייל</label>
