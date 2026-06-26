@@ -18,8 +18,8 @@ import UserSettings from '../models/UserSettings.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, '..', '.env') });
 
-const DEV_EMAIL = process.env.DEV_USER_EMAIL || 'admin@zimmerpro.local';
-const DEV_PASSWORD = process.env.DEV_USER_PASSWORD || 'DevAdmin123!';
+const DEV_EMAIL = process.env.DEV_USER_EMAIL || 'admin@zimmerpro';
+const DEV_PASSWORD = process.env.DEV_USER_PASSWORD || 'admin123';
 const DEV_NAME = process.env.DEV_USER_NAME || 'Dev Admin';
 
 async function createDevUser() {
