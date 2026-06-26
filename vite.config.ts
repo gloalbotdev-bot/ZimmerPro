@@ -28,7 +28,15 @@ function loadClientEnv(): Record<string, string> {
 }
 
 export default defineConfig(() => {
-  const env = loadClientEnv();
+  // Local dev: read from .env.client (gitignored).
+  // Deploy (Render): .env.client isn't in the repo, so VITE_* / GEMINI_API_KEY
+  // come from the platform's env vars (process.env), which override the file.
+  const env: Record<string, string> = { ...loadClientEnv() };
+  for (const [key, val] of Object.entries(process.env)) {
+    if ((key.startsWith('VITE_') || key === 'GEMINI_API_KEY') && val != null) {
+      env[key] = val;
+    }
+  }
 
   const define: Record<string, string> = {
     'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
