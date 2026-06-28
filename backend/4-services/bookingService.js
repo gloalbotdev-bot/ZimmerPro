@@ -80,6 +80,21 @@ export class BookingService {
   }
 
   async createBooking(bookingData, user) {
+    const { unitId, checkIn, checkOut } = bookingData;
+
+    if (!unitId || !checkIn || !checkOut) {
+      throw new Error('unitId, checkIn and checkOut are required');
+    }
+
+    if (checkIn >= checkOut) {
+      throw new Error('checkOut must be after checkIn');
+    }
+
+    const conflict = await bookingRepository.hasOverlap(unitId, checkIn, checkOut);
+    if (conflict) {
+      throw new Error('Unit is already booked for the selected dates');
+    }
+
     const booking = await bookingRepository.create(bookingData);
     
     // Sync to Google Calendar if user has it connected
@@ -133,6 +148,22 @@ export class BookingService {
         }
       } else {
         throw new Error('Access denied');
+      }
+    }
+
+    // Check for date overlap if dates or unit are being changed (skip if cancelling)
+    const newCheckIn  = bookingData.checkIn  ?? booking.checkIn;
+    const newCheckOut = bookingData.checkOut ?? booking.checkOut;
+    const newUnitId   = bookingData.unitId   ?? booking.unitId;
+    const newStatus   = bookingData.status   ?? booking.status;
+
+    if (newStatus !== 'cancelled' && (bookingData.checkIn || bookingData.checkOut || bookingData.unitId)) {
+      if (newCheckIn >= newCheckOut) {
+        throw new Error('checkOut must be after checkIn');
+      }
+      const conflict = await bookingRepository.hasOverlap(newUnitId, newCheckIn, newCheckOut, id);
+      if (conflict) {
+        throw new Error('Unit is already booked for the selected dates');
       }
     }
 

@@ -53,6 +53,18 @@ export class BookingController {
         data: booking
       });
     } catch (error) {
+      if (error.message === 'Unit is already booked for the selected dates') {
+        return res.status(409).json({
+          success: false,
+          error: error.message
+        });
+      }
+      if (error.message === 'checkOut must be after checkIn') {
+        return res.status(400).json({
+          success: false,
+          error: error.message
+        });
+      }
       next(error);
     }
   }
@@ -73,6 +85,18 @@ export class BookingController {
       }
       if (error.message === 'Access denied') {
         return res.status(403).json({
+          success: false,
+          error: error.message
+        });
+      }
+      if (error.message === 'Unit is already booked for the selected dates') {
+        return res.status(409).json({
+          success: false,
+          error: error.message
+        });
+      }
+      if (error.message === 'checkOut must be after checkIn') {
+        return res.status(400).json({
           success: false,
           error: error.message
         });
