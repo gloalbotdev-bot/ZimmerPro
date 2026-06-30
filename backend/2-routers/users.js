@@ -1,8 +1,14 @@
 import express from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { checkRole } from '../middleware/authorization.js';
 import userController from '../3-controllers/userController.js';
 
 const router = express.Router();
+
+// Get guest users for booking assignment (owners + admin)
+router.get('/guests', authenticate, checkRole('admin', 'zimmer_owner', 'complex_owner', 'manager'), (req, res, next) =>
+  userController.getGuests(req, res, next)
+);
 
 // Get all users (Admin only)
 router.get('/', authenticate, authorize('admin'), (req, res, next) => userController.getAll(req, res, next));

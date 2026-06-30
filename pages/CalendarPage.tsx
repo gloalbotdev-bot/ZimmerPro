@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { AppState, Booking, BookingStatus } from '../types';
+import { AppState, Booking, BookingStatus, User } from '../types';
 import { translations, Language } from '../translations';
-import { bookingsAPI } from '../api';
+import { bookingsAPI, usersAPI } from '../api';
 import { useCalendarData } from '../hooks/useCalendarData';
 import CalendarHeader from '../components/calendar/CalendarHeader';
 import MonthGridView from '../components/calendar/MonthGridView';
@@ -86,6 +86,11 @@ const CalendarPage: React.FC<Props> = ({ db, setDb, lang }) => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [guestUsers, setGuestUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    usersAPI.getGuests().then(data => setGuestUsers(data || [])).catch(() => {});
+  }, []);
 
   const addToast = (type: ToastType, title: string, message?: string) => {
     const id = ++toastCounter;
@@ -124,6 +129,7 @@ const CalendarPage: React.FC<Props> = ({ db, setDb, lang }) => {
       unitId: unitId || '',
       guestName: '',
       guestPhone: '',
+      userId: undefined,
       checkIn: checkIn || (selectedDate ? formatDate(selectedDate) : ''),
       checkOut: '',
       totalPrice: 0,
@@ -217,11 +223,12 @@ const CalendarPage: React.FC<Props> = ({ db, setDb, lang }) => {
     if (!validateBooking()) return;
     try {
       setLoading(true);
+      const payload: Partial<Booking> = { ...currentBooking, userId: currentBooking.userId || null };
       if (modalMode === 'edit' && currentBooking.id) {
-        await bookingsAPI.update(currentBooking.id, currentBooking);
+        await bookingsAPI.update(currentBooking.id, payload);
         addToast('success', 'ההזמנה עודכנה בהצלחה');
       } else {
-        await bookingsAPI.create(currentBooking);
+        await bookingsAPI.create(payload);
         addToast('success', 'ההזמנה נוצרה בהצלחה');
       }
       await loadBookings();
@@ -331,6 +338,8 @@ const CalendarPage: React.FC<Props> = ({ db, setDb, lang }) => {
         loading={loading}
         units={displayedUnits}
         fieldErrors={fieldErrors}
+        showGuestSelect
+        guestUsers={guestUsers}
         existingBookings={bookings}
         onClearFieldErrors={keys => setFieldErrors(prev => {
           const next = { ...prev };

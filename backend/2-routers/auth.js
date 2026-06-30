@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 import { requireAuthMethod } from '../middleware/authMethodGuard.js';
 import authController from '../3-controllers/authController.js';
 
@@ -25,6 +25,11 @@ router.post('/login', requireAuthMethod('email'), (req, res, next) => {
 
 // Get current user
 router.get('/me', authenticate, (req, res) => authController.getMe(req, res));
+
+// Admin impersonate another user (issues token for target user)
+router.post('/impersonate/:userId', authenticate, authorize('admin'), (req, res, next) =>
+  authController.impersonate(req, res, next)
+);
 
 // Google OAuth login
 router.post('/google', requireAuthMethod('google'), (req, res, next) => {

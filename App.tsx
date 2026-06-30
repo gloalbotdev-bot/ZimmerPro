@@ -38,6 +38,7 @@ import ContactsPage from './pages/ContactsPage';
 import FacilitiesPage from './pages/FacilitiesPage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import ReviewsPage from './pages/ReviewsPage';
+import GuestReviewsPage from './pages/GuestReviewsPage';
 import PublicLodgingsPage from './pages/PublicLodgingsPage';
 import { getDB } from './db';
 import { setAuthToken, usersAPI, authAPI, getAuthToken } from './api';
@@ -145,6 +146,8 @@ const App: React.FC = () => {
     
     if (!user.isApproved && !isAdmin) {
       validTabs = ['bookings'];
+    } else if (user.role === UserRole.CLIENT || user.role === UserRole.CUSTOMER) {
+      validTabs = ['bookings', 'calendar', 'reviews'];
     } else {
       validTabs = ['dashboard', 'bot_simulator', /* 'integrations', */ 'units', 'bookings', 'calendar', 'reviews', 'contacts', 'facilities'];
       
@@ -195,14 +198,25 @@ const App: React.FC = () => {
     setDb({ ...db, currentUser: undefined, originalAdminUser: undefined });
   };
 
-  const handleReturnToAdmin = () => {
-    if (db.originalAdminUser) {
+  const handleReturnToAdmin = async () => {
+    if (!db.originalAdminUser) return;
+    try {
+      const result = await authAPI.restoreAdminSession();
+      const user = result.user || result;
+      setDb({
+        ...db,
+        currentUser: user,
+        originalAdminUser: undefined
+      });
+      setActiveTab('users');
+      console.log('🔄 [App] Returned to admin view');
+    } catch (err) {
+      console.error('Failed to restore admin session:', err);
       setDb({
         ...db,
         currentUser: db.originalAdminUser,
         originalAdminUser: undefined
       });
-      console.log('🔄 [App] Returned to admin view');
     }
   };
 
@@ -252,6 +266,7 @@ const App: React.FC = () => {
       return [
         { id: 'bookings', label: t.bookings, icon: ClipboardList },
         { id: 'calendar', label: t.calendar, icon: CalendarDays },
+        { id: 'reviews', label: t.reviews, icon: Star },
       ];
     }
     
@@ -294,7 +309,12 @@ const App: React.FC = () => {
     if (activeTab === 'calendar') return <CalendarPage db={db} setDb={setDb} lang={lang} />;
     if (activeTab === 'bot_simulator') return <BotSimulator db={db} setDb={setDb} lang={lang} />;
     if (activeTab === 'integrations') return <IntegrationsPage db={db} lang={lang} />;
-    if (activeTab === 'reviews') return <ReviewsPage db={db} setDb={setDb} lang={lang} />;
+    if (activeTab === 'reviews') {
+      const isGuest = db.currentUser?.role === UserRole.CLIENT || db.currentUser?.role === UserRole.CUSTOMER;
+      return isGuest
+        ? <GuestReviewsPage db={db} setDb={setDb} lang={lang} />
+        : <ReviewsPage db={db} setDb={setDb} lang={lang} />;
+    }
     if (activeTab === 'settings') return <SettingsPage db={db} setDb={setDb} />;
     if (activeTab === 'users') return <UsersPage db={db} setDb={setDb} />;
     if (activeTab === 'accounts') return <AccountsPage db={db} setDb={setDb} lang={lang} />;

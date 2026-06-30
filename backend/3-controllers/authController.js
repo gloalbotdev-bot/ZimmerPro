@@ -59,6 +59,21 @@ export class AuthController {
     }
   }
 
+  async impersonate(req, res, next) {
+    try {
+      const result = await authService.impersonateUser(req.params.userId, req.user);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      if (error.message === 'Access denied') {
+        return res.status(403).json({ success: false, error: error.message });
+      }
+      if (error.message === 'User not found or inactive') {
+        return res.status(404).json({ success: false, error: error.message });
+      }
+      next(error);
+    }
+  }
+
   async googleLogin(req, res, next) {
     try {
       console.log('🔵 [Controller] Google login endpoint called');

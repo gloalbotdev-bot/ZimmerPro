@@ -40,6 +40,29 @@ export class UserService {
     return usersWithSettings;
   }
 
+  async getGuestUsers(user) {
+    const allowedRoles = ['admin', 'zimmer_owner', 'complex_owner', 'manager'];
+    if (!allowedRoles.includes(user.role)) {
+      throw new Error('Access denied');
+    }
+
+    const users = await userRepository.findAll({
+      role: { $in: ['client', 'customer'] },
+      isActive: true
+    });
+
+    return users.map(u => {
+      const json = u.toJSON();
+      return {
+        id: json.id,
+        name: json.name,
+        email: json.email,
+        phoneNumber: json.phoneNumber || '',
+        role: json.role
+      };
+    });
+  }
+
   async getUserById(id, user) {
     const foundUser = await userRepository.findById(id);
     

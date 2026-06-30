@@ -13,6 +13,18 @@ export class UserController {
     }
   }
 
+  async getGuests(req, res, next) {
+    try {
+      const users = await userService.getGuestUsers(req.user);
+      res.json({ success: true, data: users });
+    } catch (error) {
+      if (error.message === 'Access denied') {
+        return res.status(403).json({ success: false, error: error.message });
+      }
+      next(error);
+    }
+  }
+
   async getById(req, res, next) {
     try {
       const user = await userService.getUserById(req.params.id, req.user);

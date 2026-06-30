@@ -183,9 +183,13 @@ const Dashboard: React.FC<Props> = ({ db, lang }) => {
               {filteredReviews.slice(0, 3).map((r, i) => (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center gap-1 text-amber-500">
-                    {Array.from({ length: 5 }).map((_, idx) => (
-                      <Star key={idx} size={10} fill={idx < r.rating ? 'currentColor' : 'none'} />
-                    ))}
+                    {r.rating != null ? (
+                      Array.from({ length: 5 }).map((_, idx) => (
+                        <Star key={idx} size={10} fill={idx < r.rating! ? 'currentColor' : 'none'} />
+                      ))
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400">ללא דירוג</span>
+                    )}
                   </div>
                   <p className="text-xs font-black text-slate-800">{r.guestName}</p>
                   <p className="text-[10px] text-slate-400 line-clamp-1 italic">"{r.comment}"</p>

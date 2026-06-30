@@ -110,11 +110,37 @@ export interface ZimmerUnit {
 export interface Review {
   id: string;
   unitId: string;
+  guestUserId?: string | null;
   guestName: string;
-  rating: number; // 1-5
+  bookingId?: string | null;
+  rating: number | null;
   comment: string;
   date: string;
+  status: 'pending_owner' | 'compromise_sent' | 'counter_sent' | 'published' | 'withdrawn';
   isPublished: boolean;
+  ownerResponseDeadline?: string;
+  compromiseDeadline?: string;
+  compromiseOffer?: {
+    type: 'discount_20' | 'credit_150' | 'reasoned_response' | 'custom';
+    customText: string;
+    sentAt: string;
+  } | null;
+  guestResponse?: {
+    action: 'accepted' | 'rejected' | 'counter';
+    text: string;
+    respondedAt: string;
+  } | null;
+  createdAt?: string;
+}
+
+export interface ReviewNotification {
+  id: string;
+  userId: string;
+  type: 'new_review' | 'compromise_received' | 'guest_counter' | 'review_published';
+  reviewId?: string;
+  message: string;
+  read: boolean;
+  createdAt?: string;
 }
 
 export interface Booking {
@@ -127,6 +153,7 @@ export interface Booking {
   totalPrice: number;
   status: BookingStatus;
   googleSynced?: boolean;
+  userId?: string | null;
 }
 
 export interface Contact {

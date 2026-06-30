@@ -41,6 +41,11 @@ const bookingSchema = new mongoose.Schema({
   googleCalendarEventId: {
     type: String,
     default: null // Store Google Calendar event ID for syncing
+  },
+  userId: {
+    type: String,
+    default: null,
+    ref: 'User'
   }
 }, {
   timestamps: true
