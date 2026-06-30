@@ -244,6 +244,18 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 server.on('listening', () => {
   const address = server.address();
   console.log(`✅ Server is listening on ${address.address}:${address.port}`);
+
+  // Auto-publish expired reviews every 15 minutes
+  import('./4-services/reviewService.js').then(({ default: reviewService }) => {
+    const runAutoPublish = () => {
+      reviewService.autoPublishExpired().catch(err => {
+        console.error('❌ [Reviews] autoPublishExpired error:', err.message);
+      });
+    };
+    runAutoPublish();
+    setInterval(runAutoPublish, 15 * 60 * 1000);
+    console.log('✅ Review auto-publish job scheduled (every 15 min)');
+  });
 });
 
 server.on('error', (error) => {

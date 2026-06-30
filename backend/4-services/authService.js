@@ -1549,6 +1549,21 @@ export class AuthService {
       throw new Error('Error verifying email OTP: ' + (error.message || 'Unknown error'));
     }
   }
+
+  async impersonateUser(targetUserId, adminUser) {
+    if (adminUser.role !== 'admin') {
+      throw new Error('Access denied');
+    }
+
+    const target = await userRepository.findById(targetUserId);
+    if (!target || !target.isActive) {
+      throw new Error('User not found or inactive');
+    }
+
+    const token = generateToken(target._id.toString());
+    const user = await this.getCurrentUser(target);
+    return { token, user };
+  }
 }
 
 export default new AuthService();

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, User, UserRole } from '../types';
-import { usersAPI, accountsAPI } from '../api';
+import { usersAPI, accountsAPI, authAPI } from '../api';
 import { 
   Plus, UserPlus, Shield, Mail, CheckCircle2, MoreVertical, Trash2, Edit2, X, Eye, EyeOff, Lock, UserCheck, AlertCircle, Clock, Link as LinkIcon, LogIn
 } from 'lucide-react';
@@ -336,7 +336,7 @@ const UsersPage: React.FC<Props> = ({ db, setDb }) => {
     }
   };
 
-  const handleLoginAsClient = (targetUser: User) => {
+  const handleLoginAsClient = async (targetUser: User) => {
     if (!currentUserInfo || currentUserInfo.role !== UserRole.ADMIN) {
       alert('רק אדמין יכול להשתמש בתכונה זו');
       return;
@@ -347,18 +347,25 @@ const UsersPage: React.FC<Props> = ({ db, setDb }) => {
       return;
     }
 
-    // Save original admin user and switch to target user view
-    setDb({
-      ...db,
-      originalAdminUser: currentUserInfo,
-      currentUser: targetUser
-    });
+    try {
+      const result = await authAPI.impersonate(targetUser.id);
+      const userData = result.user || result;
 
-    console.log('🔄 [UsersPage] Switched to user view:', {
-      originalAdmin: currentUserInfo.name,
-      targetUser: targetUser.name,
-      targetRole: targetUser.role
-    });
+      setDb({
+        ...db,
+        originalAdminUser: currentUserInfo,
+        currentUser: userData
+      });
+
+      console.log('🔄 [UsersPage] Impersonating user:', {
+        originalAdmin: currentUserInfo.name,
+        targetUser: userData.name,
+        targetRole: userData.role
+      });
+    } catch (err: any) {
+      console.error('❌ [UsersPage] Impersonation failed:', err);
+      alert('שגיאה בהתחברות כמשתמש: ' + (err.message || 'Unknown error'));
+    }
   };
 
   const getRoleBadge = (role: UserRole) => {

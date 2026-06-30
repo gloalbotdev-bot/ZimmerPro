@@ -29,6 +29,20 @@ export class ReviewRepository {
   async findByUnitId(unitId) {
     return await Review.find({ unitId });
   }
+
+  async findExpiredPendingOwner(now) {
+    return await Review.find({
+      status: 'pending_owner',
+      ownerResponseDeadline: { $lt: now }
+    });
+  }
+
+  async findExpiredCompromise(now) {
+    return await Review.find({
+      status: 'compromise_sent',
+      compromiseDeadline: { $lt: now }
+    });
+  }
 }
 
 export default new ReviewRepository();

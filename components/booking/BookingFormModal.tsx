@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { Booking, BookingStatus, User, ZimmerUnit } from '../../types';
 import { calculateTotalPrice } from '../../utils/bookingPrice';
@@ -29,6 +29,9 @@ export const translateBookingError = (msg: string): { title: string; detail?: st
   if (msg.includes('unitId, checkIn and checkOut are required')) {
     return { title: 'יש למלא יחידה ותאריכים' };
   }
+  if (msg.includes('Invalid guest user')) {
+    return { title: 'יש לבחור לקוח רשום תקין' };
+  }
   if (msg.includes('Booking not found')) {
     return { title: 'ההזמנה לא נמצאה' };
   }
@@ -41,6 +44,8 @@ export const translateBookingError = (msg: string): { title: string; detail?: st
   return { title: 'שגיאה', detail: msg };
 };
 
+type GuestMode = 'registered' | 'unregistered';
+
 interface Props {
   isOpen: boolean;
   mode: 'add' | 'edit';
@@ -51,6 +56,8 @@ interface Props {
   loading: boolean;
   units: ZimmerUnit[];
   fieldErrors: Record<string, string>;
+  showGuestSelect?: boolean;
+  guestUsers?: User[];
   showAdminUserSelect?: boolean;
   users?: User[];
   selectedUserId?: string;
@@ -70,6 +77,8 @@ const BookingFormModal: React.FC<Props> = ({
   loading,
   units,
   fieldErrors,
+  showGuestSelect = false,
+  guestUsers = [],
   showAdminUserSelect = false,
   users = [],
   selectedUserId = '',
@@ -80,6 +89,12 @@ const BookingFormModal: React.FC<Props> = ({
 }) => {
   const unitsToShow = availableUnits ?? units;
   const excludeBookingId = mode === 'edit' ? currentBooking.id : undefined;
+  const [guestMode, setGuestMode] = useState<GuestMode>('registered');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setGuestMode(currentBooking.userId ? 'registered' : mode === 'edit' ? 'unregistered' : 'registered');
+  }, [isOpen, mode, currentBooking.userId]);
 
   useEffect(() => {
     if (currentBooking.unitId && currentBooking.checkIn && currentBooking.checkOut) {
@@ -92,6 +107,8 @@ const BookingFormModal: React.FC<Props> = ({
   }, [currentBooking.unitId, currentBooking.checkIn, currentBooking.checkOut, units]);
 
   if (!isOpen) return null;
+
+  const isRegisteredGuest = showGuestSelect && guestMode === 'registered';
 
   const isUnitOccupied = (unitId: string) => {
     if (!currentBooking.checkIn || !currentBooking.checkOut) return false;
@@ -132,6 +149,44 @@ const BookingFormModal: React.FC<Props> = ({
     onClearFieldErrors?.(['checkOut']);
   };
 
+  const handleGuestModeChange = (mode: GuestMode) => {
+    setGuestMode(mode);
+    if (mode === 'unregistered') {
+      onChange({
+        ...currentBooking,
+        userId: undefined,
+        guestName: '',
+        guestPhone: '',
+      });
+    } else {
+      onChange({
+        ...currentBooking,
+        userId: undefined,
+        guestName: '',
+        guestPhone: '',
+      });
+    }
+    onClearFieldErrors?.(['guestUserId', 'guestName', 'guestPhone']);
+  };
+
+  const handleRegisteredGuestSelect = (userId: string) => {
+    const selected = guestUsers.find(u => u.id === userId);
+    if (!selected) {
+      onChange({ ...currentBooking, userId: undefined, guestName: '', guestPhone: '' });
+      return;
+    }
+    onChange({
+      ...currentBooking,
+      userId: selected.id,
+      guestName: selected.name,
+      guestPhone: selected.phoneNumber || '',
+    });
+    onClearFieldErrors?.(['guestUserId', 'guestName', 'guestPhone']);
+  };
+
+  const canSave = !loading && !(showAdminUserSelect && !selectedUserId) &&
+    !(isRegisteredGuest && !currentBooking.userId);
+
   return (
     <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
       <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -159,6 +214,60 @@ const BookingFormModal: React.FC<Props> = ({
                     <option key={u.id} value={u.id}>{u.name} ({u.email}) - {u.role}</option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {showGuestSelect && (
+              <div className="space-y-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 mr-2">סוג אורח</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleGuestModeChange('registered')}
+                    className={`flex-1 py-3 px-4 rounded-2xl text-sm font-black transition-all ${
+                      guestMode === 'registered'
+                        ? 'bg-indigo-600 text-white shadow-lg'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    לקוח רשום
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleGuestModeChange('unregistered')}
+                    className={`flex-1 py-3 px-4 rounded-2xl text-sm font-black transition-all ${
+                      guestMode === 'unregistered'
+                        ? 'bg-slate-700 text-white shadow-lg'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    אורח לא רשום
+                  </button>
+                </div>
+
+                {isRegisteredGuest && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">בחר לקוח מהמערכת</label>
+                    <select
+                      value={currentBooking.userId || ''}
+                      onChange={e => handleRegisteredGuestSelect(e.target.value)}
+                      className={`w-full bg-slate-50 border rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-indigo-600 transition-all ${
+                        fieldErrors.guestUserId ? 'border-rose-300 bg-rose-50/30' : 'border-transparent'
+                      }`}
+                    >
+                      <option value="">בחר לקוח רשום</option>
+                      {guestUsers.map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}{u.phoneNumber ? ` — ${u.phoneNumber}` : ''}{u.email ? ` (${u.email})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <FieldError message={fieldErrors.guestUserId} />
+                    {guestUsers.length === 0 && (
+                      <p className="text-xs text-amber-600 font-bold mt-2">אין לקוחות רשומים במערכת — בחר &quot;אורח לא רשום&quot;</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -190,7 +299,10 @@ const BookingFormModal: React.FC<Props> = ({
                   type="text"
                   value={currentBooking.guestName || ''}
                   onChange={e => onChange({ ...currentBooking, guestName: e.target.value })}
-                  className={`w-full bg-slate-50 border rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all ${fieldErrors.guestName ? 'border-rose-300 bg-rose-50/30' : 'border-transparent'}`}
+                  readOnly={isRegisteredGuest}
+                  className={`w-full border rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all ${
+                    isRegisteredGuest ? 'bg-slate-100 text-slate-600' : 'bg-slate-50'
+                  } ${fieldErrors.guestName ? 'border-rose-300 bg-rose-50/30' : 'border-transparent'}`}
                   placeholder="ישראל ישראלי"
                 />
                 <FieldError message={fieldErrors.guestName} />
@@ -201,7 +313,10 @@ const BookingFormModal: React.FC<Props> = ({
                   type="tel"
                   value={currentBooking.guestPhone || ''}
                   onChange={e => onChange({ ...currentBooking, guestPhone: e.target.value })}
-                  className={`w-full bg-slate-50 border rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all ${fieldErrors.guestPhone ? 'border-rose-300 bg-rose-50/30' : 'border-transparent'}`}
+                  readOnly={isRegisteredGuest}
+                  className={`w-full border rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all ${
+                    isRegisteredGuest ? 'bg-slate-100 text-slate-600' : 'bg-slate-50'
+                  } ${fieldErrors.guestPhone ? 'border-rose-300 bg-rose-50/30' : 'border-transparent'}`}
                   placeholder="050-1234567"
                 />
                 <FieldError message={fieldErrors.guestPhone} />
@@ -268,7 +383,7 @@ const BookingFormModal: React.FC<Props> = ({
             <button
               type="button"
               onClick={onSave}
-              disabled={loading || (showAdminUserSelect && !selectedUserId)}
+              disabled={!canSave}
               className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 disabled:opacity-50"
             >
               {loading ? 'שומר...' : mode === 'edit' ? 'עדכן הזמנה' : 'שמור הזמנה'}

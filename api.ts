@@ -4,6 +4,7 @@ const API_BASE_URL =
   (viteEnv.DEV ? 'http://localhost:3000/api' : '/api');
 
 const TOKEN_STORAGE_KEY = 'zimmerpro_auth_token';
+const ADMIN_TOKEN_BACKUP_KEY = 'zimmerpro_admin_token_backup';
 
 const PAYLOAD_KEY = 'payload';
 
@@ -22,6 +23,7 @@ export const setAuthToken = (token: string | null) => {
     localStorage.setItem(TOKEN_STORAGE_KEY, token);
   } else {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(ADMIN_TOKEN_BACKUP_KEY);
   }
 };
 
@@ -217,6 +219,29 @@ export const authAPI = {
     });
   },
   getMe: () => apiRequest('/auth/me'),
+  impersonate: async (userId: string) => {
+    const currentToken = getAuthToken();
+    if (currentToken) {
+      localStorage.setItem(ADMIN_TOKEN_BACKUP_KEY, currentToken);
+    }
+    const result = await apiRequest(`/auth/impersonate/${userId}`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    if (result?.token) {
+      setAuthToken(result.token);
+    }
+    return result;
+  },
+  restoreAdminSession: async () => {
+    const adminToken = localStorage.getItem(ADMIN_TOKEN_BACKUP_KEY);
+    if (!adminToken) {
+      throw new Error('No admin session to restore');
+    }
+    setAuthToken(adminToken);
+    localStorage.removeItem(ADMIN_TOKEN_BACKUP_KEY);
+    return authAPI.getMe();
+  },
   sendPhoneOTP: async (phoneNumber: string, mode: 'login' | 'register' = 'login', method: 'sms' | 'voice' = 'sms') => {
     const payload = { phoneNumber, mode, method };
     console.log('📱 [API] sendPhoneOTP query payload', payload);
@@ -293,6 +318,7 @@ export const accountsAPI = {
 
 export const usersAPI = {
   getAll: () => apiRequest('/users'),
+  getGuests: () => apiRequest('/users/guests'),
   getById: (id: string) => apiRequest(`/users/${id}`),
   create: (userData: any) => apiRequest('/users', {
     method: 'POST',
@@ -304,6 +330,40 @@ export const usersAPI = {
   }),
   delete: (id: string) => apiRequest(`/users/${id}`, {
     method: 'DELETE',
+  }),
+};
+
+export const reviewsAPI = {
+  getAll: () => apiRequest('/reviews'),
+  getById: (id: string) => apiRequest(`/reviews/${id}`),
+  getEligibleUnits: () => apiRequest('/reviews/eligible-units'),
+  create: (reviewData: any) => apiRequest('/reviews', {
+    method: 'POST',
+    body: JSON.stringify(reviewData),
+  }),
+  sendCompromise: (id: string, compromiseData: any) => apiRequest(`/reviews/${id}/compromise`, {
+    method: 'POST',
+    body: JSON.stringify(compromiseData),
+  }),
+  respondToCompromise: (id: string, responseData: any) => apiRequest(`/reviews/${id}/respond`, {
+    method: 'POST',
+    body: JSON.stringify(responseData),
+  }),
+  update: (id: string, reviewData: any) => apiRequest(`/reviews/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(reviewData),
+  }),
+  delete: (id: string) => apiRequest(`/reviews/${id}`, {
+    method: 'DELETE',
+  }),
+  getNotifications: () => apiRequest('/reviews/notifications'),
+  markNotificationRead: (id: string) => apiRequest(`/reviews/notifications/${id}/read`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  }),
+  markAllNotificationsRead: () => apiRequest('/reviews/notifications/read-all', {
+    method: 'POST',
+    body: JSON.stringify({}),
   }),
 };
 

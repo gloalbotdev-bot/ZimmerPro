@@ -1,8 +1,24 @@
 import bookingRepository from '../5-repositories/bookingRepository.js';
 import unitRepository from '../5-repositories/unitRepository.js';
+import userRepository from '../5-repositories/userRepository.js';
 import googleCalendarService from './googleCalendarService.js';
 
 export class BookingService {
+  async resolveBookingUserId(bookingData, creator) {
+    if (creator.role === 'client' || creator.role === 'customer') {
+      return creator._id.toString();
+    }
+    const rawUserId = bookingData.userId;
+    if (!rawUserId) {
+      return null;
+    }
+    const guestUser = await userRepository.findById(bookingData.userId);
+    if (!guestUser || !['client', 'customer'].includes(guestUser.role)) {
+      throw new Error('Invalid guest user — select a registered client');
+    }
+    return guestUser._id.toString();
+  }
+
   async getAllBookings(user) {
     let query = {};
     
@@ -40,7 +56,7 @@ export class BookingService {
       }
     } else if (user.role === 'client' || user.role === 'customer') {
       // Clients see only their own bookings
-      query.userId = user._id;
+      query.userId = user._id.toString();
     }
 
     const bookings = await bookingRepository.findAll(query);
@@ -71,6 +87,10 @@ export class BookingService {
         if (unit.accountId?.toString() !== user.accountId?.toString()) {
           throw new Error('Access denied');
         }
+      } else if (user.role === 'client' || user.role === 'customer') {
+        if (booking.userId?.toString() !== user._id?.toString()) {
+          throw new Error('Access denied');
+        }
       } else {
         throw new Error('Access denied');
       }
@@ -95,7 +115,10 @@ export class BookingService {
       throw new Error('Unit is already booked for the selected dates');
     }
 
-    const booking = await bookingRepository.create(bookingData);
+    const dataToCreate = { ...bookingData };
+    dataToCreate.userId = await this.resolveBookingUserId(bookingData, user);
+
+    const booking = await bookingRepository.create(dataToCreate);
     
     // Sync to Google Calendar if user has it connected
     if (user.googleCalendarLinked && booking.status !== 'cancelled') {
@@ -146,6 +169,10 @@ export class BookingService {
         if (unit.accountId?.toString() !== user.accountId?.toString()) {
           throw new Error('Access denied');
         }
+      } else if (user.role === 'client' || user.role === 'customer') {
+        if (booking.userId?.toString() !== user._id?.toString()) {
+          throw new Error('Access denied');
+        }
       } else {
         throw new Error('Access denied');
       }
@@ -167,7 +194,14 @@ export class BookingService {
       }
     }
 
-    const updatedBooking = await bookingRepository.update(id, bookingData);
+    const updatePayload = { ...bookingData };
+    if (user.role === 'client' || user.role === 'customer') {
+      delete updatePayload.userId;
+    } else if ('userId' in bookingData) {
+      updatePayload.userId = await this.resolveBookingUserId(bookingData, user);
+    }
+
+    const updatedBooking = await bookingRepository.update(id, updatePayload);
     
     // Sync to Google Calendar if user has it connected
     if (user.googleCalendarLinked) {
@@ -224,6 +258,10 @@ export class BookingService {
       } else if (user.role === 'zimmer_owner' || user.role === 'complex_owner' || user.role === 'manager') {
         // zimmer_owner with account or complex_owner/manager: check by accountId
         if (unit.accountId?.toString() !== user.accountId?.toString()) {
+          throw new Error('Access denied');
+        }
+      } else if (user.role === 'client' || user.role === 'customer') {
+        if (booking.userId?.toString() !== user._id?.toString()) {
           throw new Error('Access denied');
         }
       } else {

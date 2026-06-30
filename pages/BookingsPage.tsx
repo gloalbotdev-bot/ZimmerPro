@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppState, BookingStatus, UserRole, Booking, ZimmerUnit } from '../types';
+import { AppState, BookingStatus, UserRole, Booking, ZimmerUnit, User } from '../types';
 import { translations, Language } from '../translations';
-import { bookingsAPI, unitsAPI } from '../api';
+import { bookingsAPI, unitsAPI, usersAPI } from '../api';
 import BookingFormModal, { translateBookingError } from '../components/booking/BookingFormModal';
 import { Calendar as CalendarIcon, Globe, RefreshCw, CheckCircle2, Plus, X, Edit2, Trash2, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
@@ -90,6 +90,7 @@ const BookingsPage: React.FC<Props> = ({ db, setDb, lang, isReadOnly = false }) 
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [units, setUnits] = useState<ZimmerUnit[]>([]);
+  const [guestUsers, setGuestUsers] = useState<User[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [currentBooking, setCurrentBooking] = useState<Partial<Booking>>({
@@ -124,7 +125,17 @@ const BookingsPage: React.FC<Props> = ({ db, setDb, lang, isReadOnly = false }) 
   useEffect(() => {
     loadBookings();
     loadUnits();
+    if (!isClient) loadGuestUsers();
   }, []);
+
+  const loadGuestUsers = async () => {
+    try {
+      const data = await usersAPI.getGuests();
+      setGuestUsers(data || []);
+    } catch (err: any) {
+      console.error('❌ [BookingsPage] Error loading guest users:', err);
+    }
+  };
 
   const loadUnits = async () => {
     try {
@@ -190,6 +201,7 @@ const BookingsPage: React.FC<Props> = ({ db, setDb, lang, isReadOnly = false }) 
       unitId: '',
       guestName: '',
       guestPhone: '',
+      userId: undefined,
       checkIn: '',
       checkOut: '',
       totalPrice: 0,
@@ -209,6 +221,7 @@ const BookingsPage: React.FC<Props> = ({ db, setDb, lang, isReadOnly = false }) 
       unitId: booking.unitId,
       guestName: booking.guestName,
       guestPhone: booking.guestPhone,
+      userId: booking.userId,
       checkIn: booking.checkIn,
       checkOut: booking.checkOut,
       totalPrice: booking.totalPrice,
@@ -239,11 +252,12 @@ const BookingsPage: React.FC<Props> = ({ db, setDb, lang, isReadOnly = false }) 
 
     try {
       setLoading(true);
+      const payload: Partial<Booking> = { ...currentBooking, userId: currentBooking.userId || null };
       if (modalMode === 'edit' && currentBooking.id) {
-        await bookingsAPI.update(currentBooking.id, currentBooking);
+        await bookingsAPI.update(currentBooking.id, payload);
         addToast('success', 'ההזמנה עודכנה בהצלחה');
       } else {
-        await bookingsAPI.create(currentBooking);
+        await bookingsAPI.create(payload);
         addToast('success', 'ההזמנה נוצרה בהצלחה');
       }
       await loadBookings();
@@ -413,6 +427,8 @@ const BookingsPage: React.FC<Props> = ({ db, setDb, lang, isReadOnly = false }) 
           loading={loading}
           units={units}
           fieldErrors={fieldErrors}
+          showGuestSelect={!isClient}
+          guestUsers={guestUsers}
           existingBookings={bookings}
           onClearFieldErrors={keys => setFieldErrors(prev => {
             const next = { ...prev };
