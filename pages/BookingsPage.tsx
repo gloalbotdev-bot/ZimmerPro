@@ -414,6 +414,11 @@ const BookingsPage: React.FC<Props> = ({ db, setDb, lang, isReadOnly = false }) 
           units={units}
           fieldErrors={fieldErrors}
           existingBookings={bookings}
+          onClearFieldErrors={keys => setFieldErrors(prev => {
+            const next = { ...prev };
+            keys.forEach(k => delete next[k]);
+            return next;
+          })}
         />
       )}
     </div>

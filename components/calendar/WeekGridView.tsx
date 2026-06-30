@@ -9,7 +9,7 @@ import {
   isToday,
   WEEKDAY_HEADERS_SUN_FIRST,
 } from '../../utils/calendarUtils';
-import { getDayOccupancy, getStatusBadgeClasses, getStatusLabel } from '../../utils/bookingOccupancy';
+import { getDayOccupancy, getStatusBadgeClasses, getStatusLabel, isDayFullyBooked } from '../../utils/bookingOccupancy';
 import OccupancyBar from './OccupancyBar';
 
 interface Props {
@@ -65,6 +65,7 @@ const WeekGridView: React.FC<Props> = ({
           const today = isToday(dayInfo.date);
           const shabbat = isShabbat(dayInfo.date);
           const selected = isSelected(dayInfo.date);
+          const fullyBooked = isDayFullyBooked(occupancy);
           const dateKey = formatDate(dayInfo.date);
 
           return (
@@ -76,17 +77,23 @@ const WeekGridView: React.FC<Props> = ({
               onMouseLeave={() => onDayHover(null)}
               className={`
                 flex flex-col p-3 text-right transition-all min-h-[200px] w-full
-                hover:bg-blue-50
-                ${!dayInfo.isCurrentMonth ? 'bg-slate-100 opacity-60' : 'bg-white'}
-                ${shabbat && dayInfo.isCurrentMonth ? '!bg-indigo-50' : ''}
+                ${fullyBooked && dayInfo.isCurrentMonth ? 'bg-slate-200/80 opacity-75' : ''}
+                ${!fullyBooked ? 'hover:bg-blue-50' : ''}
+                ${!dayInfo.isCurrentMonth ? 'bg-slate-100 opacity-60' : fullyBooked ? '' : 'bg-white'}
+                ${shabbat && dayInfo.isCurrentMonth && !fullyBooked ? '!bg-indigo-50' : ''}
                 ${today ? 'ring-2 ring-inset ring-blue-500' : ''}
                 ${selected ? 'ring-2 ring-inset ring-indigo-600 !bg-indigo-50/40 z-[1]' : ''}
               `}
             >
-              <div className="mb-2">
-                <span className={`text-lg font-black ${shabbat ? 'text-indigo-700' : 'text-slate-800'}`}>
+              <div className="mb-2 relative">
+                <span className={`text-lg font-black ${fullyBooked ? 'text-slate-500' : shabbat ? 'text-indigo-700' : 'text-slate-800'}`}>
                   {dayInfo.day}
                 </span>
+                {fullyBooked && dayInfo.isCurrentMonth && (
+                  <span className="absolute top-0 left-0 text-[8px] font-black text-slate-500 bg-slate-300 px-1.5 py-0.5 rounded">
+                    מלא
+                  </span>
+                )}
                 <p className="text-[10px] font-bold text-slate-500">{getHebrewDayName(dayInfo.date)}</p>
               </div>
 

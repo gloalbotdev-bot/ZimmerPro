@@ -6,6 +6,7 @@ import {
   UnitDayInfo,
   getStatusBadgeClasses,
   getStatusLabel,
+  isDayFullyBooked,
 } from '../../utils/bookingOccupancy';
 import { formatHebrewDate, getHebrewDayName, getHebrewMonthName } from '../../utils/calendarUtils';
 
@@ -89,6 +90,8 @@ const DaySidePanel: React.FC<Props> = ({
   onViewBooking,
   embedded = false,
 }) => {
+  const fullyBooked = isDayFullyBooked(occupancy);
+
   const handleAddBooking = (e: React.MouseEvent) => {
     e.stopPropagation();
     onAddBooking();
@@ -127,11 +130,17 @@ const DaySidePanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={handleAddBooking}
-          className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-slate-800 transition-all"
+          disabled={fullyBooked}
+          className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl font-black text-sm hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-900"
         >
           <Plus size={16} />
           הזמנה חדשה
         </button>
+        {fullyBooked && (
+          <p className="text-xs text-slate-500 font-bold mt-2 text-center">
+            כל היחידות תפוסות ביום זה
+          </p>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 min-h-0">

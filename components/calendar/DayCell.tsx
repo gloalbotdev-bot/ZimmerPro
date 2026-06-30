@@ -7,11 +7,12 @@ interface Props {
   dayInfo: CalendarDay;
   occupancy: DayOccupancySummary;
   isSelected: boolean;
+  fullyBooked?: boolean;
   onClick: (date: Date) => void;
   onHover: (dateKey: string | null, rect?: DOMRect) => void;
 }
 
-const DayCell: React.FC<Props> = ({ dayInfo, occupancy, isSelected, onClick, onHover }) => {
+const DayCell: React.FC<Props> = ({ dayInfo, occupancy, isSelected, fullyBooked = false, onClick, onHover }) => {
   const ref = useRef<HTMLButtonElement>(null);
   const today = isToday(dayInfo.date);
   const shabbat = isShabbat(dayInfo.date);
@@ -37,9 +38,10 @@ const DayCell: React.FC<Props> = ({ dayInfo, occupancy, isSelected, onClick, onH
       className={`
         relative flex flex-col justify-between p-2 min-h-[96px] w-full
         transition-all text-right
-        hover:bg-blue-50
-        ${!dayInfo.isCurrentMonth ? 'bg-slate-100 opacity-60' : 'bg-white'}
-        ${shabbat && dayInfo.isCurrentMonth ? '!bg-indigo-50' : ''}
+        ${fullyBooked && dayInfo.isCurrentMonth ? 'bg-slate-200/80 opacity-75' : ''}
+        ${!fullyBooked ? 'hover:bg-blue-50' : ''}
+        ${!dayInfo.isCurrentMonth ? 'bg-slate-100 opacity-60' : fullyBooked ? '' : 'bg-white'}
+        ${shabbat && dayInfo.isCurrentMonth && !fullyBooked ? '!bg-indigo-50' : ''}
         ${today ? 'ring-2 ring-inset ring-blue-500' : ''}
         ${isSelected ? 'ring-2 ring-inset ring-indigo-600 !bg-indigo-50/40 z-[1]' : ''}
       `}
@@ -62,6 +64,12 @@ const DayCell: React.FC<Props> = ({ dayInfo, occupancy, isSelected, onClick, onH
       {today && (
         <span className="absolute top-1.5 left-1.5 text-[8px] font-black text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
           היום
+        </span>
+      )}
+
+      {fullyBooked && dayInfo.isCurrentMonth && !today && (
+        <span className="absolute top-1.5 left-1.5 text-[8px] font-black text-slate-500 bg-slate-300 px-1.5 py-0.5 rounded">
+          מלא
         </span>
       )}
 
