@@ -2,7 +2,12 @@ import React, { useEffect } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { Booking, BookingStatus, User, ZimmerUnit } from '../../types';
 import { calculateTotalPrice } from '../../utils/bookingPrice';
-import { bookingsOverlap } from '../../utils/bookingOccupancy';
+import {
+  bookingsOverlap,
+  isCheckInDateDisabled,
+  isCheckOutDateDisabled,
+} from '../../utils/bookingOccupancy';
+import BookingDatePicker from './BookingDatePicker';
 
 export const FieldError: React.FC<{ message?: string }> = ({ message }) => {
   if (!message) return null;
@@ -52,6 +57,7 @@ interface Props {
   onSelectedUserIdChange?: (id: string) => void;
   availableUnits?: ZimmerUnit[];
   existingBookings?: Booking[];
+  onClearFieldErrors?: (keys: string[]) => void;
 }
 
 const BookingFormModal: React.FC<Props> = ({
@@ -70,8 +76,10 @@ const BookingFormModal: React.FC<Props> = ({
   onSelectedUserIdChange,
   availableUnits,
   existingBookings = [],
+  onClearFieldErrors,
 }) => {
   const unitsToShow = availableUnits ?? units;
+  const excludeBookingId = mode === 'edit' ? currentBooking.id : undefined;
 
   useEffect(() => {
     if (currentBooking.unitId && currentBooking.checkIn && currentBooking.checkOut) {
@@ -92,8 +100,36 @@ const BookingFormModal: React.FC<Props> = ({
       currentBooking.checkIn,
       currentBooking.checkOut,
       existingBookings,
-      mode === 'edit' ? currentBooking.id : undefined
+      excludeBookingId
     );
+  };
+
+  const handleUnitChange = (unitId: string) => {
+    const updated: Partial<Booking> = { ...currentBooking, unitId };
+    if (unitId && updated.checkIn && isCheckInDateDisabled(unitId, updated.checkIn, existingBookings, excludeBookingId)) {
+      updated.checkIn = '';
+      updated.checkOut = '';
+    } else if (unitId && updated.checkIn && updated.checkOut &&
+      isCheckOutDateDisabled(unitId, updated.checkIn, updated.checkOut, existingBookings, excludeBookingId)) {
+      updated.checkOut = '';
+    }
+    onChange(updated);
+    onClearFieldErrors?.(['unitId', 'checkIn', 'checkOut']);
+  };
+
+  const handleCheckInChange = (checkIn: string) => {
+    let checkOut = currentBooking.checkOut || '';
+    if (currentBooking.unitId && checkOut &&
+      isCheckOutDateDisabled(currentBooking.unitId, checkIn, checkOut, existingBookings, excludeBookingId)) {
+      checkOut = '';
+    }
+    onChange({ ...currentBooking, checkIn, checkOut });
+    onClearFieldErrors?.(['checkIn', 'checkOut']);
+  };
+
+  const handleCheckOutChange = (checkOut: string) => {
+    onChange({ ...currentBooking, checkOut });
+    onClearFieldErrors?.(['checkOut']);
   };
 
   return (
@@ -130,7 +166,7 @@ const BookingFormModal: React.FC<Props> = ({
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">יחידה</label>
               <select
                 value={currentBooking.unitId}
-                onChange={e => onChange({ ...currentBooking, unitId: e.target.value })}
+                onChange={e => handleUnitChange(e.target.value)}
                 disabled={showAdminUserSelect && !selectedUserId}
                 className={`w-full bg-slate-50 border rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all ${fieldErrors.unitId ? 'border-rose-300 bg-rose-50/30' : 'border-transparent'}`}
               >
@@ -175,21 +211,28 @@ const BookingFormModal: React.FC<Props> = ({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">תאריך כניסה</label>
-                <input
-                  type="date"
+                <BookingDatePicker
                   value={currentBooking.checkIn || ''}
-                  onChange={e => onChange({ ...currentBooking, checkIn: e.target.value })}
-                  className={`w-full bg-slate-50 border rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all ${fieldErrors.checkIn ? 'border-rose-300 bg-rose-50/30' : 'border-transparent'}`}
+                  onChange={handleCheckInChange}
+                  mode="checkIn"
+                  unitId={currentBooking.unitId}
+                  existingBookings={existingBookings}
+                  excludeBookingId={excludeBookingId}
+                  error={fieldErrors.checkIn}
                 />
                 <FieldError message={fieldErrors.checkIn} />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-2">תאריך יציאה</label>
-                <input
-                  type="date"
+                <BookingDatePicker
                   value={currentBooking.checkOut || ''}
-                  onChange={e => onChange({ ...currentBooking, checkOut: e.target.value })}
-                  className={`w-full bg-slate-50 border rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-slate-900 transition-all ${fieldErrors.checkOut ? 'border-rose-300 bg-rose-50/30' : 'border-transparent'}`}
+                  onChange={handleCheckOutChange}
+                  mode="checkOut"
+                  unitId={currentBooking.unitId}
+                  checkIn={currentBooking.checkIn}
+                  existingBookings={existingBookings}
+                  excludeBookingId={excludeBookingId}
+                  error={fieldErrors.checkOut}
                 />
                 <FieldError message={fieldErrors.checkOut} />
               </div>

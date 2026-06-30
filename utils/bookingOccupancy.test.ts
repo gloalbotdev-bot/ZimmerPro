@@ -4,6 +4,9 @@ import {
   getDayOccupancy,
   bookingsOverlap,
   isNightOccupied,
+  isCheckInDateDisabled,
+  isCheckOutDateDisabled,
+  isDayFullyBooked,
   getOccupancyPercent,
   getOccupancyBarColor,
 } from './bookingOccupancy';
@@ -83,5 +86,40 @@ describe('bookingOccupancy', () => {
     expect(getOccupancyBarColor(30)).toBe('bg-blue-400');
     expect(getOccupancyBarColor(70)).toBe('bg-orange-400');
     expect(getOccupancyBarColor(90)).toBe('bg-orange-600');
+  });
+
+  it('isCheckInDateDisabled blocks occupied check-in nights', () => {
+    expect(isCheckInDateDisabled('u1', '2026-06-10', bookings)).toBe(true);
+    expect(isCheckInDateDisabled('u1', '2026-06-11', bookings)).toBe(true);
+    expect(isCheckInDateDisabled('u1', '2026-06-12', bookings)).toBe(false);
+    expect(isCheckInDateDisabled('u2', '2026-06-10', bookings)).toBe(false);
+    expect(isCheckInDateDisabled('', '2026-06-10', bookings)).toBe(false);
+  });
+
+  it('isCheckInDateDisabled excludes current booking when editing', () => {
+    expect(isCheckInDateDisabled('u1', '2026-06-10', bookings, 'b1')).toBe(false);
+  });
+
+  it('isCheckOutDateDisabled blocks invalid or overlapping checkout dates', () => {
+    expect(isCheckOutDateDisabled('u1', '2026-06-08', '2026-06-08', bookings)).toBe(true);
+    expect(isCheckOutDateDisabled('u1', '2026-06-08', '2026-06-09', bookings)).toBe(false);
+    expect(isCheckOutDateDisabled('u1', '2026-06-08', '2026-06-11', bookings)).toBe(true);
+    expect(isCheckOutDateDisabled('u1', '2026-06-12', '2026-06-14', bookings)).toBe(false);
+    expect(isCheckOutDateDisabled('u1', '', '2026-06-14', bookings)).toBe(true);
+  });
+
+  it('isDayFullyBooked when no unit is available', () => {
+    const fullDay = getDayOccupancy(parseDateKey('2026-06-10'), [units[0]], bookings);
+    expect(isDayFullyBooked(fullDay)).toBe(true);
+
+    const partialDay = getDayOccupancy(parseDateKey('2026-06-10'), units, bookings);
+    expect(isDayFullyBooked(partialDay)).toBe(false);
+
+    const maintenanceUnit = {
+      ...units[0],
+      status: UnitStatus.MAINTENANCE,
+    };
+    const maintenanceDay = getDayOccupancy(parseDateKey('2026-06-15'), [maintenanceUnit], []);
+    expect(isDayFullyBooked(maintenanceDay)).toBe(true);
   });
 });

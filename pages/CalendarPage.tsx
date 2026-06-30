@@ -332,6 +332,11 @@ const CalendarPage: React.FC<Props> = ({ db, setDb, lang }) => {
         units={displayedUnits}
         fieldErrors={fieldErrors}
         existingBookings={bookings}
+        onClearFieldErrors={keys => setFieldErrors(prev => {
+          const next = { ...prev };
+          keys.forEach(k => delete next[k]);
+          return next;
+        })}
       />
 
       {selectedBooking && (

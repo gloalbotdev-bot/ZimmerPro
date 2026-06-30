@@ -1,5 +1,5 @@
 import { Booking, BookingStatus, UnitStatus, ZimmerUnit } from '../types';
-import { formatDate } from './calendarUtils';
+import { formatDate, parseDateKey } from './calendarUtils';
 
 export type UnitDayStatus = 'available' | 'confirmed' | 'pending' | 'completed' | 'cancelled' | 'out_of_range';
 
@@ -58,6 +58,31 @@ export const bookingsOverlap = (
     return b.checkIn < checkOut && b.checkOut > checkIn;
   });
 };
+
+export const isCheckInDateDisabled = (
+  unitId: string,
+  dateStr: string,
+  bookings: Booking[],
+  excludeBookingId?: string
+): boolean => {
+  if (!unitId) return false;
+  return isNightOccupied(unitId, parseDateKey(dateStr), bookings, excludeBookingId);
+};
+
+export const isCheckOutDateDisabled = (
+  unitId: string,
+  checkIn: string,
+  dateStr: string,
+  bookings: Booking[],
+  excludeBookingId?: string
+): boolean => {
+  if (!unitId || !checkIn) return true;
+  if (dateStr <= checkIn) return true;
+  return bookingsOverlap(unitId, checkIn, dateStr, bookings, excludeBookingId);
+};
+
+export const isDayFullyBooked = (occupancy: DayOccupancySummary): boolean =>
+  occupancy.totalUnits > 0 && !occupancy.units.some(u => u.status === 'available');
 
 const mapBookingToStatus = (booking: Booking): UnitDayStatus => {
   switch (booking.status) {

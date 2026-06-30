@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking, ZimmerUnit } from '../../types';
 import { CalendarDay, WEEKDAY_HEADERS_SUN_FIRST } from '../../utils/calendarUtils';
-import { DayOccupancySummary, getDayOccupancy } from '../../utils/bookingOccupancy';
+import { DayOccupancySummary, getDayOccupancy, isDayFullyBooked } from '../../utils/bookingOccupancy';
 import DayCell from './DayCell';
 
 interface Props {
@@ -54,16 +54,20 @@ const MonthGridView: React.FC<Props> = ({
           </div>
         ))}
 
-        {calendarDays.map((dayInfo, idx) => (
+        {calendarDays.map((dayInfo, idx) => {
+          const occupancy = getOccupancy(dayInfo.date);
+          return (
           <DayCell
             key={idx}
             dayInfo={dayInfo}
-            occupancy={getOccupancy(dayInfo.date)}
+            occupancy={occupancy}
             isSelected={isSelected(dayInfo.date)}
+            fullyBooked={isDayFullyBooked(occupancy)}
             onClick={onDayClick}
             onHover={onDayHover}
           />
-        ))}
+          );
+        })}
       </div>
     </div>
   );
