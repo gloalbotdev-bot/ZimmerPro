@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.get('/', authenticate, (req, res, next) => contactController.getAll(req, res, next));
 
+router.get('/guests', authenticate, (req, res, next) => contactController.getGuests(req, res, next));
 
 router.get('/:id', authenticate, (req, res, next) => contactController.getById(req, res, next));
 

@@ -286,6 +286,7 @@ export const bookingsAPI = {
 
 export const contactsAPI = {
   getAll: () => apiRequest('/contacts'),
+  getGuests: () => apiRequest('/contacts/guests'),
   getById: (id: string) => apiRequest(`/contacts/${id}`),
   create: (contactData: any) => apiRequest('/contacts', {
     method: 'POST',

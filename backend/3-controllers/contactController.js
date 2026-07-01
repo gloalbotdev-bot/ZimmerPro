@@ -37,6 +37,24 @@ export class ContactController {
     }
   }
 
+  async getGuests(req, res, next) {
+    try {
+      const guests = await contactService.getGuestContacts(req.user);
+      res.json({
+        success: true,
+        data: guests
+      });
+    } catch (error) {
+      if (error.message === 'Access denied') {
+        return res.status(403).json({
+          success: false,
+          error: error.message
+        });
+      }
+      next(error);
+    }
+  }
+
   async create(req, res, next) {
     try {
       const contact = await contactService.createContact(req.body, req.user);
@@ -45,8 +63,8 @@ export class ContactController {
         data: contact
       });
     } catch (error) {
-      if (error.message === 'accountId is required5') {
-        return res.status(400).json({
+      if (error.message === 'Access denied') {
+        return res.status(403).json({
           success: false,
           error: error.message
         });

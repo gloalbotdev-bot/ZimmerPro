@@ -2,14 +2,19 @@ import mongoose from 'mongoose';
 
 const contactSchema = new mongoose.Schema({
   accountId: {
-    type: Number,
-    required: false, // Not required for admin users
+    type: mongoose.Schema.Types.Mixed,
+    required: false,
     ref: 'Account'
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true // Always required - who created this contact
+    required: true
+  },
+  type: {
+    type: String,
+    enum: ['supplier', 'customer'],
+    default: 'supplier'
   },
   name: {
     type: String,
@@ -33,12 +38,20 @@ const contactSchema = new mongoose.Schema({
   notes: {
     type: String,
     default: ''
+  },
+  lastOrderDate: {
+    type: String,
+    default: ''
+  },
+  orderCount: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 }, {
   timestamps: true
 });
 
-// Transform _id to id and userId
 contactSchema.methods.toJSON = function() {
   const obj = this.toObject();
   if (obj._id) {
@@ -47,6 +60,9 @@ contactSchema.methods.toJSON = function() {
   }
   if (obj.userId) {
     obj.userId = obj.userId.toString();
+  }
+  if (obj.accountId != null) {
+    obj.accountId = obj.accountId.toString();
   }
   delete obj.__v;
   return obj;
