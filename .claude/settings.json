@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(cd \"c:\\\\Bennys\\\\GlobalBot\\\\LeenaSrc\\\\ZimmerPro\" && echo \"=== all dotenv files in root ===\" && ls -la .env* 2>/dev/null && echo \"\" && echo \"=== .env.client \\(masked\\) ===\" && sed -E 's/\\(=.{12}\\).*/\\\\1.../' .env.client)",
-      "Bash(VITE_GOOGLE_CLIENT_ID=test123 VITE_API_URL=https://x/api npx vite build)"
+      "Bash(VITE_GOOGLE_CLIENT_ID=test123 VITE_API_URL=https://x/api npx vite build)",
+      "Bash(npm run *)"
     ],
     "additionalDirectories": [
       "c:\\Bennys\\GlobalBot\\LeenaSrc\\ZimmerPro"
