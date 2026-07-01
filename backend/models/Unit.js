@@ -1,13 +1,20 @@
 import mongoose from 'mongoose';
 
 const specialPriceSchema = new mongoose.Schema({
+  season: String,
+  mode: String,
+  pricePerNight: Number,
+  dayFrom: Number,
+  dayTo: Number,
   startDate: String,
   endDate: String,
-  pricePerNight: Number,
+  isDefault: Boolean,
+  // legacy fields kept for backward compatibility
   label: String,
   earlyCheckInAllowed: Boolean,
   lateCheckOutAllowed: Boolean,
-  minNights: Number
+  minNights: Number,
+  dayType: String
 }, { _id: false });
 
 const unitSchema = new mongoose.Schema({
