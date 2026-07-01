@@ -172,11 +172,32 @@ export interface Booking {
 
 export interface Contact {
   id: string;
-  accountId: number;
+  accountId?: string;
+  userId?: string;
+  type?: 'supplier' | 'customer';
   name: string;
   role: string;
   phone: string;
   email: string;
+  notes?: string;
+  lastOrderDate?: string;
+  orderCount?: number;
+}
+
+export interface GuestUnitStay {
+  unitId: string;
+  unitName: string;
+  lastStayDate: string;
+  stayCount: number;
+}
+
+export interface GuestContact {
+  id: string;
+  name: string;
+  phone: string;
+  lastStayDate: string;
+  stayCount: number;
+  unitStays: GuestUnitStay[];
   notes?: string;
 }
 
