@@ -1,8 +1,47 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppState, ZimmerUnit, UnitStatus, Room, UserRole, Facility, SpecialPriceConfig, User } from '../types';
+import { AppState, ZimmerUnit, UnitStatus, Room, UserRole, Facility, SpecialPriceConfig, PriceSeason, PriceMode, User } from '../types';
 import { translations, Language } from '../translations';
 import { unitsAPI, roomsAPI, facilitiesAPI, usersAPI, uploadAPI, accountsAPI } from '../api';
+
+// --- Seasonal pricing tiers ---
+const newPriceId = () => Math.random().toString(36).substr(2, 9);
+
+const SEASON_LABELS: Record<PriceSeason, string> = {
+  winter: 'חורף',
+  summer: 'קיץ',
+};
+
+const MODE_LABELS: Record<PriceMode, string> = {
+  midweek: 'אמצ"ש',
+  weekend: 'סופ"ש',
+  peak: 'מותאם אישית',
+};
+
+const MODE_OPTIONS: PriceMode[] = ['midweek', 'weekend', 'peak'];
+
+// Weekday labels indexed 0 (Sunday) .. 6 (Saturday)
+const WEEKDAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+// 6 fixed seasonal tiers seeded into every new unit (2 seasons × 3 modes)
+const DEFAULT_PRICE_TIERS = (): SpecialPriceConfig[] => [
+  { id: newPriceId(), season: 'winter', mode: 'midweek', pricePerNight: 699,  dayFrom: 0, dayTo: 4, startDate: '', endDate: '', isDefault: true },
+  { id: newPriceId(), season: 'winter', mode: 'weekend', pricePerNight: 799,  dayFrom: 4, dayTo: 0, startDate: '', endDate: '', isDefault: true },
+  { id: newPriceId(), season: 'winter', mode: 'peak',    pricePerNight: 899,  startDate: '', endDate: '', isDefault: true },
+  { id: newPriceId(), season: 'summer', mode: 'midweek', pricePerNight: 899,  dayFrom: 0, dayTo: 4, startDate: '', endDate: '', isDefault: true },
+  { id: newPriceId(), season: 'summer', mode: 'weekend', pricePerNight: 999,  dayFrom: 4, dayTo: 0, startDate: '', endDate: '', isDefault: true },
+  { id: newPriceId(), season: 'summer', mode: 'peak',    pricePerNight: 1199, startDate: '2026-07-01', endDate: '2026-08-31', isDefault: true },
+];
+
+// Fill missing season/mode on legacy rows; map very old `price` → pricePerNight
+const normalizeSpecialPrices = (rows: SpecialPriceConfig[] = []): SpecialPriceConfig[] =>
+  rows.map(r => ({
+    ...r,
+    id: r.id || newPriceId(),
+    season: r.season ?? 'winter',
+    mode: r.mode ?? ((r.startDate || r.endDate) ? 'peak' : 'midweek'),
+    pricePerNight: r.pricePerNight ?? r.price ?? 0,
+  }));
 
 // Get API base URL for image URL fixing
 const getApiBaseUrl = (): string => {
@@ -469,7 +508,7 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
       mainImage: '',
       videoUrl: '',
       facilityIds: [],
-      specialPrices: [],
+      specialPrices: DEFAULT_PRICE_TIERS(),
       region: undefined
     });
     setSelectedUserId('');
@@ -486,8 +525,8 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
 
   const handleOpenEdit = async (unit: ZimmerUnit) => {
     setCurrentUnit({ 
-      ...unit, 
-      specialPrices: unit.specialPrices || [],
+      ...unit,
+      specialPrices: normalizeSpecialPrices(unit.specialPrices || []),
       mainImage: unit.mainImage || (unit.images && unit.images.length > 0 ? unit.images[0] : '')
     });
     
@@ -519,16 +558,19 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
 
   const handleAddSpecialPrice = () => {
     const newSpecial: SpecialPriceConfig = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: newPriceId(),
+      season: 'winter',
+      mode: 'midweek',
+      pricePerNight: currentUnit.pricePerNight || 0,
+      dayFrom: 0,
+      dayTo: 4,
       startDate: '',
       endDate: '',
-      pricePerNight: currentUnit.pricePerNight || 0,
-      label: 'תמחור עונתי',
-      earlyCheckInAllowed: false,
-      lateCheckOutAllowed: false,
-      minNights: 1
+      isDefault: false,
+      label: ''
     };
-    setCurrentUnit({ ...currentUnit, specialPrices: [...(currentUnit.specialPrices || []), newSpecial] });
+    // Prepend so the new row is visible at the top of the table (not below the scroll fold)
+    setCurrentUnit({ ...currentUnit, specialPrices: [newSpecial, ...(currentUnit.specialPrices || [])] });
   };
 
   const handleRemoveSpecialPrice = (id: string) => {
@@ -849,13 +891,16 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
         facilityIds: currentUnit.facilityIds || [],
         region: currentUnit.region || null,
         specialPrices: (currentUnit.specialPrices || []).map(sp => ({
+          id: sp.id,
+          season: sp.season,
+          mode: sp.mode,
+          pricePerNight: sp.pricePerNight,
+          dayFrom: sp.dayFrom,
+          dayTo: sp.dayTo,
           startDate: sp.startDate,
           endDate: sp.endDate,
-          pricePerNight: sp.pricePerNight,
-          label: sp.label,
-          earlyCheckInAllowed: sp.earlyCheckInAllowed,
-          lateCheckOutAllowed: sp.lateCheckOutAllowed,
-          minNights: sp.minNights
+          isDefault: sp.isDefault,
+          label: sp.label
         }))
       };
 
@@ -1842,7 +1887,7 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
                          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">הגדרת מחירים לעונת שיא, חגים וסופי שבוע</p>
                       </div>
                       <button onClick={handleAddSpecialPrice} className="w-full md:w-auto bg-slate-900 text-white px-6 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-xl hover:bg-indigo-600 transition-all">
-                        <Plus size={18} /> הוספת תאריך מיוחד
+                        <Plus size={18} /> הוספת מצב מותאם אישית
                       </button>
                    </div>
 
@@ -1850,11 +1895,10 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
                       <table className="w-full text-right border-collapse min-w-[600px] sm:min-w-[800px]">
                          <thead>
                             <tr className="bg-slate-50 border-b border-slate-100">
-                               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">תיאור העונה</th>
-                               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">מתאריך</th>
-                               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">עד תאריך</th>
+                               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">עונה</th>
+                               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">מצב</th>
+                               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">תקופה</th>
                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">מחיר ללילה</th>
-                               <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">תנאים</th>
                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest"></th>
                             </tr>
                          </thead>
@@ -1862,13 +1906,41 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
                             {currentUnit.specialPrices?.map((price) => (
                                <tr key={price.id} className="hover:bg-slate-50/50 transition-colors">
                                   <td className="px-6 py-4">
-                                     <input type="text" value={price.label} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, label: e.target.value} : p)})} className="bg-transparent border-none text-sm font-black text-slate-800 w-full focus:ring-0 placeholder-slate-300" placeholder="למשל: יולי-אוגוסט" />
+                                     {price.isDefault ? (
+                                        <span className="text-sm font-black text-slate-800">{SEASON_LABELS[price.season] || price.season}</span>
+                                     ) : (
+                                        <input type="text" maxLength={30} value={price.label || ''} placeholder="שם התקופה" onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, label: e.target.value} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold text-right w-32 focus:ring-2 focus:ring-slate-900 outline-none transition-all placeholder-slate-300" />
+                                     )}
                                   </td>
                                   <td className="px-6 py-4">
-                                     <input type="date" value={price.startDate} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, startDate: e.target.value} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-slate-900 outline-none transition-all" />
+                                     <select value={price.mode} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, mode: e.target.value as PriceMode} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold text-right focus:ring-2 focus:ring-slate-900 outline-none transition-all">
+                                        {MODE_OPTIONS.map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
+                                     </select>
                                   </td>
                                   <td className="px-6 py-4">
-                                     <input type="date" value={price.endDate} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, endDate: e.target.value} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-slate-900 outline-none transition-all" />
+                                     {price.mode === 'peak' ? (
+                                        <div className="flex items-center gap-2">
+                                           <div className="flex flex-col gap-1">
+                                              <span className="text-[10px] font-bold text-slate-400">מתאריך</span>
+                                              <input type="date" value={price.startDate || ''} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, startDate: e.target.value} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-slate-900 outline-none transition-all" />
+                                           </div>
+                                           <div className="flex flex-col gap-1">
+                                              <span className="text-[10px] font-bold text-slate-400">עד תאריך</span>
+                                              <input type="date" value={price.endDate || ''} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, endDate: e.target.value} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-slate-900 outline-none transition-all" />
+                                           </div>
+                                        </div>
+                                     ) : (
+                                        <div className="flex items-center gap-2">
+                                           <span className="text-[10px] font-bold text-slate-400">מיום</span>
+                                           <select value={price.dayFrom ?? 0} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, dayFrom: Number(e.target.value)} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold text-right focus:ring-2 focus:ring-slate-900 outline-none transition-all">
+                                              {WEEKDAY_LABELS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                                           </select>
+                                           <span className="text-[10px] font-bold text-slate-400">עד יום</span>
+                                           <select value={price.dayTo ?? 4} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, dayTo: Number(e.target.value)} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold text-right focus:ring-2 focus:ring-slate-900 outline-none transition-all">
+                                              {WEEKDAY_LABELS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                                           </select>
+                                        </div>
+                                     )}
                                   </td>
                                   <td className="px-6 py-4">
                                      <div className="relative">
@@ -1876,32 +1948,16 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
                                         <input type="number" value={price.pricePerNight} onChange={e => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, pricePerNight: Number(e.target.value)} : p)})} className="bg-slate-50 border border-slate-100 rounded-xl pl-4 pr-8 py-2.5 text-xs font-black w-28 focus:ring-2 focus:ring-slate-900 outline-none transition-all" />
                                      </div>
                                   </td>
-                                  <td className="px-6 py-4">
-                                     <div className="flex gap-2">
-                                        <button 
-                                          onClick={() => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, earlyCheckInAllowed: !p.earlyCheckInAllowed} : p)})} 
-                                          className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center border ${price.earlyCheckInAllowed ? 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm' : 'bg-slate-50 text-slate-300 border-slate-100'}`} 
-                                          title="Early Check-In"
-                                        >
-                                           <Sun size={18} />
-                                        </button>
-                                        <button 
-                                          onClick={() => setCurrentUnit({...currentUnit, specialPrices: currentUnit.specialPrices?.map(p => p.id === price.id ? {...p, lateCheckOutAllowed: !p.lateCheckOutAllowed} : p)})} 
-                                          className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center border ${price.lateCheckOutAllowed ? 'bg-indigo-50 text-indigo-600 border-indigo-100 shadow-sm' : 'bg-slate-50 text-slate-300 border-slate-100'}`} 
-                                          title="Late Check-Out"
-                                        >
-                                           <Moon size={18} />
-                                        </button>
-                                     </div>
-                                  </td>
                                   <td className="px-6 py-4 text-left">
-                                     <button onClick={() => handleRemoveSpecialPrice(price.id)} className="p-3 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={18}/></button>
+                                     {!price.isDefault && (
+                                        <button onClick={() => handleRemoveSpecialPrice(price.id)} className="p-3 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={18}/></button>
+                                     )}
                                   </td>
                                </tr>
                             ))}
                             {(!currentUnit.specialPrices || currentUnit.specialPrices.length === 0) && (
                                <tr>
-                                  <td colSpan={6} className="py-20 text-center">
+                                  <td colSpan={5} className="py-20 text-center">
                                      <Calendar size={48} className="mx-auto text-slate-100 mb-4" />
                                      <p className="text-slate-300 font-bold">לא הוגדרו תאריכים מיוחדים ליחידה זו.</p>
                                   </td>
@@ -2278,7 +2334,7 @@ const UnitsPage: React.FC<Props> = ({ db, setDb, lang }) => {
                     שומר...
                   </>
                 ) : (
-                  modalMode === 'add' ? 'צור יחידה חדשה' : 'שמור שינויים'
+                  modalMode === 'add' ? 'שמירה' : 'שמור שינויים'
                 )}
               </button>
             </div>

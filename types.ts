@@ -52,15 +52,29 @@ export enum UnitStatus {
   MAINTENANCE = 'maintenance'
 }
 
+export type PriceSeason = 'winter' | 'summer';
+export type PriceMode   = 'midweek' | 'weekend' | 'peak';
+
 export interface SpecialPriceConfig {
   id: string;
-  startDate: string;
-  endDate: string;
+  season: PriceSeason;
+  mode: PriceMode;
   pricePerNight: number;
-  label: string; // e.g., "August Peak", "Passover"
-  earlyCheckInAllowed: boolean;
-  lateCheckOutAllowed: boolean;
+  // weekday range — used only when mode is 'midweek' or 'weekend'.
+  // 0 = Sunday ... 6 = Saturday.
+  dayFrom?: number;
+  dayTo?: number;
+  // date range — used only when mode is 'peak'.
+  startDate?: string;
+  endDate?: string;
+  isDefault?: boolean;
+  // --- legacy / optional, kept for backward compatibility ---
+  label?: string;
+  earlyCheckInAllowed?: boolean;
+  lateCheckOutAllowed?: boolean;
   minNights?: number;
+  dayType?: string;   // from any prior attempt; ignore but keep optional
+  price?: number;     // very old rows; mapped to pricePerNight on load
 }
 
 export interface Account {
